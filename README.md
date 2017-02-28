@@ -1,4 +1,4 @@
-# sjTREC caller
+# Split read hunter
 
 |||
 |---|---|
