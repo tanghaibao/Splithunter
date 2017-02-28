@@ -25,7 +25,7 @@ $(SEQLIB):
 $(PROG): $(OBJS) $(SEQLIB)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
-%.o: %.cc
+%.o: %.cpp
 	$(CXX) -c -o $@ $^ $(CXXFLAGS)
 
 clean:
