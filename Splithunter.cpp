@@ -1,6 +1,7 @@
 #include <getopt.h>
 #include "SeqLib/RefGenome.h"
 #include "SeqLib/BWAWrapper.h"
+#include "SeqLib/BamReader.h"
 
 using namespace SeqLib;
 using namespace std;
@@ -16,17 +17,17 @@ static const char *USAGE_MESSAGE =
 "\nReport bugs to <htang@humanlongevity.com>\n\n";
 
 namespace opt {
-  static bool verbose = false;
-  static std::string bam;
-  static std::string reference = "/mnt/ref/hg38.upper.fa";
+    static bool verbose = false;
+    static string bam;
+    static string reference = "/mnt/ref/hg38.upper.fa";
 }
 
 static const char* shortopts = "hvb:r:";
 static const struct option longopts[] = {
-  { "help",                    no_argument, NULL, 'h' },
-  { "verbose",                 no_argument, NULL, 'v' },
-  { "reference",               required_argument, NULL, 'r' },
-  { NULL, 0, NULL, 0 }
+    { "help",                    no_argument, NULL, 'h' },
+    { "verbose",                 no_argument, NULL, 'v' },
+    { "reference",               required_argument, NULL, 'r' },
+    { NULL, 0, NULL, 0 }
 };
 
 
@@ -39,7 +40,7 @@ int run() {
     ref.LoadIndex(opt::reference);
 
     // get sequence at given locus
-    string seq = ref.QueryRegion("chr1", 1000000,1001000);
+    string seq = ref.QueryRegion("chr14", 22386000, 22388000);
     cout << seq << endl;
 
     // Make an in-memory BWA-MEM index of region
@@ -47,15 +48,26 @@ int run() {
     UnalignedSequenceVector usv = {{"chr_reg1", seq}};
     bwa.ConstructIndex(usv);
 
-    // align an example string with BWA-MEM
-    std::string querySeq = "CGATCCGAGCCCCTAGGGCGGATCCCGGCTCCAGGCCCGCGCGC";
-    BamRecordVector results;
-    // hardclip=false, secondary score cutoff=0.9, max secondary alignments=10
-    bwa.AlignSequence(querySeq, "my_seq", results, false, 0.9, 10);
+    BamReader br;
+    br.Open(opt::bam);
+    BamRecord r;
+    bool hardclip = false;
+    float secondary_cutoff = .9;
+    int secondary_cap = 10;
 
-    // print results to stdout
-    for (auto& i : results)
-        std::cout << i << std::endl;
+    int counts = 0;
+    while (br.GetNextRecord(r)) {
+        BamRecordVector results;
+        bwa.AlignSequence(r.Sequence(), r.Qname(),
+                          results, hardclip, secondary_cutoff, secondary_cap);
+        // print results to stdout
+        for (auto& i : results)
+        {
+            cout << i;
+            counts++;
+        }
+    }
+    cout << "Number of alignments:" << counts << endl;
 
     return 0;
 }
@@ -76,7 +88,7 @@ int main(int argc, char** argv) {
     bool help = false;
 
     for (char c; (c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1;) {
-        std::istringstream arg(optarg != NULL ? optarg : "");
+        istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'v': opt::verbose = true; break;
             case 'r': arg >> opt::reference; break;
@@ -87,10 +99,8 @@ int main(int argc, char** argv) {
     run();
 
     if (die || help || opt::reference.empty() || opt::bam.empty()) {
-        std::cerr << "\n" << USAGE_MESSAGE;
-        if (die)
-	        exit(EXIT_FAILURE);
-        else
-	        exit(EXIT_SUCCESS);
+        cerr << "\n" << USAGE_MESSAGE;
+        if (die) exit(EXIT_FAILURE);
+        else exit(EXIT_SUCCESS);
     }
 }
