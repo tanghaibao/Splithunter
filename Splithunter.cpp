@@ -83,8 +83,8 @@ int run() {
             leftPart = i.Sequence().substr(0, queryStart);
             rightPart = i.Sequence().substr(queryStart, readLength);
         } else if (queryEnd < readLength - PAD) {
-            leftPart = i.Sequence().substr(0, queryEnd + 1);
-            rightPart = i.Sequence().substr(queryEnd + 1, readLength);
+            leftPart = i.Sequence().substr(0, queryEnd);
+            rightPart = i.Sequence().substr(queryEnd, readLength);
         } else continue;
 
         BamRecordVector resultsL, resultsR;
