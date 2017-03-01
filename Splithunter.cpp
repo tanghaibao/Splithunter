@@ -2,7 +2,6 @@
 #include "SeqLib/RefGenome.h"
 #include "SeqLib/BWAWrapper.h"
 #include "SeqLib/BamReader.h"
-#include "SeqLib/SeqLibUtils.h"
 #include "SeqLib/GenomicRegion.h"
 
 using namespace SeqLib;
@@ -52,6 +51,9 @@ int run() {
 
     BamReader br;
     br.Open(opt::bam);
+    GenomicRegion gr("chr14:22386000-22477000", br.Header());
+    br.SetRegion(gr);
+
     BamRecord r;
     const bool hardclip = false;
     const float secondary_cutoff = .9;
