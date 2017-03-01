@@ -34,8 +34,6 @@ static const struct option longopts[] = {
 
 // Where work is done
 int run() {
-    cout << opt::bam << endl;
-    cout << opt::reference << endl;
 
     RefGenome ref;
     ref.LoadIndex(opt::reference);
@@ -47,7 +45,10 @@ int run() {
     ostringstream ss;
     ss << tchr << ":" << tpos1 << "-" << tpos2;
     const string tchrFull = ss.str();
-    cout << tchrFull << endl;
+
+    cerr << "[BAM input] " << opt::bam << endl;
+    cerr << "[Reference] " << opt::reference << endl;
+    cerr << "[Target   ] " << name << " (" << tchrFull << ")" << endl;
 
     // get sequence at given locus
     string seq = ref.QueryRegion(tchr, tpos1, tpos2);
@@ -132,19 +133,17 @@ int run() {
         valid++;
         cout << i;
         cout << "start: " << queryStart << " end: " << queryEnd << " len: " << readLength << endl;
-        cout << "leftPart : " << leftPart << endl;
-        cout << "rightPart: " << rightPart << endl;
-        cout << "[L] " << leftRec;
-        cout << "[R] " << rightRec;
-        cout << "Total score: " << leftScore << " + " << rightScore
-             << " = " << totalScore << endl;
+        cout << leftRec;
+        cout << rightRec;
+        cout << "Score   : " << leftScore << " + " << rightScore << " = " << totalScore << endl;
         cout << "Distance: " << leftAlign << " - " << rightAlign << " = " << dist << endl;
 
         // TODO: Make sure the left and right alignment are distinct
     }
 
-    cerr << "Total alignments:" << total << endl;
-    cerr << "Valid alignments:" << valid << endl;
+    cerr << "[Total SR] " << total << endl;
+    cerr << "[Valid SR] " << valid << endl;
+    cerr << "[SR ratio] " << valid * 1e6 / total << " ppm" << endl;
 
     return 0;
 }
