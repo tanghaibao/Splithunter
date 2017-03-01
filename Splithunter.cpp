@@ -2,6 +2,7 @@
 #include "SeqLib/RefGenome.h"
 #include "SeqLib/BWAWrapper.h"
 #include "SeqLib/BamReader.h"
+#include "SeqLib/SeqLibUtils.h"
 
 using namespace SeqLib;
 using namespace std;
@@ -40,8 +41,8 @@ int run() {
     ref.LoadIndex(opt::reference);
 
     // get sequence at given locus
-    string seq = ref.QueryRegion("chr14", 22386000, 22388000);
-    cout << seq << endl;
+    string seq = ref.QueryRegion("chr14", 22386000, 22477000);
+    //cout << seq << endl;
 
     // Make an in-memory BWA-MEM index of region
     BWAWrapper bwa;
@@ -51,20 +52,56 @@ int run() {
     BamReader br;
     br.Open(opt::bam);
     BamRecord r;
-    bool hardclip = false;
-    float secondary_cutoff = .9;
-    int secondary_cap = 10;
+    const bool hardclip = false;
+    const float secondary_cutoff = .9;
+    const int secondary_cap = 0;
+    const int PAD = 30;  // threshold for a significant match
 
     int counts = 0;
+    string leftPart, rightPart;
+
     while (br.GetNextRecord(r)) {
         BamRecordVector results;
+        if (r.NumClip() < PAD || r.NumClip() > r.Length() - PAD) continue;
+        //cout << "BEFORE: " << r.GetCigar() << endl;
         bwa.AlignSequence(r.Sequence(), r.Qname(),
                           results, hardclip, secondary_cutoff, secondary_cap);
-        // print results to stdout
+
+        cout << "FOUND " << results.size() << " ALIGNMENTS" << endl;
         for (auto& i : results)
         {
+            if (i.NumClip() < PAD || i.NumClip() > i.Length() - PAD) continue;
+            //cout << "AFTER : " << i.GetCigar() << endl;
             cout << i;
             counts++;
+            // Bipartite alignment: 0-index coordinate at this point
+            int32_t queryStart = i.AlignmentPosition();
+            int32_t queryEnd   = i.AlignmentEndPosition();
+            int32_t readLength = i.Length();
+            cout << "start: " << queryStart << " end: " << queryEnd << " len: " << readLength << endl;
+            if (queryStart > PAD) {
+                leftPart = i.Sequence().substr(0, queryStart - 1);
+                rightPart = i.Sequence().substr(queryStart, readLength);
+            } else if (queryEnd < readLength - PAD) {
+                leftPart = i.Sequence().substr(0, queryEnd);
+                rightPart = i.Sequence().substr(queryEnd + 1, readLength);
+            } else continue;
+            cout << "leftPart : " << leftPart << endl;
+            cout << "rightPart: " << rightPart << endl;
+
+            BamRecordVector resultsL, resultsR;
+            bwa.AlignSequence(leftPart, r.Qname() + "L",
+                              resultsL, hardclip, secondary_cutoff, secondary_cap);
+
+            bwa.AlignSequence(rightPart, r.Qname() + "R",
+                              resultsR, hardclip, secondary_cutoff, secondary_cap);
+
+            if (resultsL.size() > 0 && resultsR.size() > 0) {
+                for (auto& l : resultsL) cout << "[L] " << l;
+                for (auto& r : resultsR) cout << "[R] " << r;
+            }
+
+            // TODO: Make sure the left and right alignment are distinct
         }
     }
     cout << "Number of alignments:" << counts << endl;
@@ -96,7 +133,10 @@ int main(int argc, char** argv) {
         }
     }
 
+    struct timespec start;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     run();
+    cout << displayRuntime(start) << endl;
 
     if (die || help || opt::reference.empty() || opt::bam.empty()) {
         cerr << "\n" << USAGE_MESSAGE;
