@@ -56,15 +56,17 @@ int run() {
     const bool hardclip = false;
     const float secondary_cutoff = .9;
     const int secondary_cap = 0;
-    const int PAD = 30;  // threshold for a significant match
+    const int PAD = 30;       // threshold for a significant match
+    const int INDEL = 10000;  // threshold for left-right distance
 
     int total = 0, valid = 0;
     string leftPart, rightPart;
 
     while (br.GetNextRecord(r)) {
         total++;
-        BamRecordVector results;
         if (r.NumClip() < PAD || r.NumClip() > r.Length() - PAD) continue;
+
+        BamRecordVector results;
         bwa.AlignSequence(r.Sequence(), r.Qname(),
                           results, hardclip, secondary_cutoff, secondary_cap);
 
@@ -100,13 +102,20 @@ int run() {
         leftRec = resultsL[0];
         rightRec = resultsR[0];
 
+        // Condition 1: Each part is significant
         leftAlign = leftRec.AsGenomicRegion();
         leftRec.GetIntTag("AS", leftScore);
         rightAlign = rightRec.AsGenomicRegion();
         rightRec.GetIntTag("AS", rightScore);
+        if (leftScore < PAD || rightScore < PAD) continue;
 
+        // Condition 2: Total score
         int32_t totalScore = leftScore + rightScore;
-        if (totalScore <= readLength - PAD) continue;
+        if (totalScore <= readLength - PAD / 2) continue;
+
+        // Condition 3: Distinct region
+        int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
+        if (dist < INDEL) continue;
 
         // Verified alignment
         valid++;
@@ -114,10 +123,11 @@ int run() {
         cout << "start: " << queryStart << " end: " << queryEnd << " len: " << readLength << endl;
         cout << "leftPart : " << leftPart << endl;
         cout << "rightPart: " << rightPart << endl;
-        cout << "[L] " << leftRec << " => " << leftAlign << endl;
-        cout << "[R] " << rightRec << " => " << rightAlign << endl;
+        cout << "[L] " << leftRec;
+        cout << "[R] " << rightRec;
         cout << "Total score: " << leftScore << " + " << rightScore
              << " = " << totalScore << endl;
+        cout << "Distance: " << leftAlign << " - " << rightAlign << " = " << dist << endl;
 
         // TODO: Make sure the left and right alignment are distinct
     }
