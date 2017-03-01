@@ -16,6 +16,7 @@ static const char *USAGE_MESSAGE =
 "  --verbose,   -v        Set verbose output\n"
 "  --reference, -r <file> Reference genome if using BWA-MEM realignment\n"
 "\nReport bugs to <htang@humanlongevity.com>\n\n";
+static const char *DEBUG = "[ DEBUG ] ";
 
 namespace opt {
     static bool verbose = false;
@@ -46,9 +47,9 @@ int run() {
     ss << tchr << ":" << tpos1 << "-" << tpos2;
     const string tchrFull = ss.str();
 
-    cerr << "[BAM input] " << opt::bam << endl;
-    cerr << "[Reference] " << opt::reference << endl;
-    cerr << "[Target   ] " << name << " (" << tchrFull << ")" << endl;
+    cerr << "[ BAM input ] " << opt::bam << endl;
+    cerr << "[ Reference ] " << opt::reference << endl;
+    cerr << "[    Target ] " << name << " (" << tchrFull << ")" << endl;
 
     // get sequence at given locus
     string seq = ref.QueryRegion(tchr, tpos1, tpos2);
@@ -77,6 +78,8 @@ int run() {
     unordered_map<string, GenomicRegionVector> cache;
 
     while (br.GetNextRecord(r)) {
+        if (r.DuplicateFlag()) continue;
+
         totalSR++;
         string readName = r.Qname();
         int32_t readScore = r.NumAlignedBases();
@@ -148,12 +151,17 @@ int run() {
 
         // Verified alignment
         validSR++;
-        cout << i;
-        cout << "start: " << queryStart << " end: " << queryEnd << " len: " << readLength << endl;
-        cout << leftRec;
-        cout << rightRec;
-        cout << "Score   : " << leftScore << " + " << rightScore << " = " << totalScore << endl;
-        cout << "Distance: " << leftAlign << " - " << rightAlign << " = " << dist << endl;
+        if (opt::verbose) {
+            cout << DEBUG << i;
+            cout << DEBUG << "start = " << queryStart << " end = " << queryEnd
+                          << " len = " << readLength << endl;
+            cout << DEBUG << leftRec;
+            cout << DEBUG << rightRec;
+            cout << DEBUG << "SR Score    " << leftScore << " + "
+                                            << rightScore << " = " << totalScore << endl;
+            cout << DEBUG << "SR Distance " << leftAlign << " - "
+                                            << rightAlign << " = " << dist << endl;
+        }
     }
 
     int32_t totalSP = 0, validSP = 0;
@@ -172,16 +180,20 @@ int run() {
         if (dist < INDEL) continue;
         validSP++;
 
-        cout << i.first << endl;
-        cout << "Distance: " << leftAlign << " - " << rightAlign << " = " << dist << endl;
+        if (opt::verbose) {
+            cout << DEBUG << i.first << endl;
+            cout << DEBUG << "SP Distance " << leftAlign << " - "
+                                            << rightAlign << " = " << dist << endl;
+        }
     }
 
-    cerr << "[Total SR] " << totalSR << endl;
-    cerr << "[Valid SR] " << validSR << endl;
-    cerr << "[SR ratio] " << validSR * 1e6 / totalSR << " ppm" << endl;
-    cerr << "[Total SP] " << totalSP << endl;
-    cerr << "[Valid SP] " << validSP << endl;
-    cerr << "[SP ratio] " << validSP * 1e6 / totalSP << " ppm" << endl;
+    cerr << "[  Total SR ] " << totalSR << endl;
+    cerr << "[  Valid SR ] " << validSR << endl;
+    cerr << "[  SR ratio ] " << validSR * 1e6 / totalSR << " ppm" << endl;
+    cerr << "[  Total SP ] " << totalSP << endl;
+    cerr << "[  Valid SP ] " << validSP << endl;
+    cerr << "[  SP ratio ] " << validSP * 1e6 / totalSP << " ppm" << endl;
+    cerr << endl;
 
     return 0;
 }
