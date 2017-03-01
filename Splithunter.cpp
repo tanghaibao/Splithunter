@@ -40,18 +40,27 @@ int run() {
     RefGenome ref;
     ref.LoadIndex(opt::reference);
 
+    const string tchr = "chr14";
+    const int32_t tpos1 = 22386000;
+    const int32_t tpos2 = 22477000;
+    const string name = "TRA";
+    ostringstream ss;
+    ss << tchr << ":" << tpos1 << "-" << tpos2;
+    const string tchrFull = ss.str();
+    cout << tchrFull << endl;
+
     // get sequence at given locus
-    string seq = ref.QueryRegion("chr14", 22386000, 22477000);
+    string seq = ref.QueryRegion(tchr, tpos1, tpos2);
     //cout << seq << endl;
 
     // Make an in-memory BWA-MEM index of region
     BWAWrapper bwa;
-    UnalignedSequenceVector usv = {{"chr_reg1", seq}};
+    UnalignedSequenceVector usv = {{name, seq}};
     bwa.ConstructIndex(usv);
 
     BamReader br;
     br.Open(opt::bam);
-    GenomicRegion gr("chr14:22386000-22477000", br.Header());
+    GenomicRegion gr(tchrFull, br.Header());
     br.SetRegion(gr);
 
     BamRecord r;

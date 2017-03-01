@@ -8,7 +8,7 @@
 
 ## Description
 
-Identify split reads in a particular region.
+Identify split reads and read pairs in a particular region.
 
 ## Installation
 
@@ -18,7 +18,3 @@ Identify split reads in a particular region.
   git clone --recursive https://github.com/tanghaibao/splithunter
   make
   ```
-
-For accessing BAMs that are located on S3, please refer to
-`Dockerfiles/sjtrec.dockerfile` for installation of SAMTOOLS/pysam with S3
-support.
