@@ -133,10 +133,12 @@ int main(int argc, char** argv) {
         }
     }
 
+    run();
+    /*
     struct timespec start;
     clock_gettime(CLOCK_MONOTONIC, &start);
-    run();
     cout << displayRuntime(start) << endl;
+    */
 
     if (die || help || opt::reference.empty() || opt::bam.empty()) {
         cerr << "\n" << USAGE_MESSAGE;

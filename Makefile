@@ -1,7 +1,7 @@
 PROG=Splithunter
 SEQ=SeqLib
 CXX=g++
-CXXFLAGS+=-I$(SEQ) -I$(SEQ)/htslib -std=c++11 -DNDEBUG -W -Wall -pedantic -fopenmp
+CXXFLAGS+=-I$(SEQ) -I$(SEQ)/htslib -std=c++11 -DNDEBUG -W -Wall -pedantic
 SEQLIB=$(SEQ)/bin/libseqlib.a
 LDFLAGS+=$(SEQ)/bin/libseqlib.a $(SEQ)/bin/libbwa.a $(SEQ)/bin/libfml.a $(SEQ)/bin/libhts.a
 
