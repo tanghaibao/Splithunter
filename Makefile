@@ -20,7 +20,7 @@ all: $(PROG)
 
 $(SEQLIB):
 	git submodule update --init --recursive
-	@cd SeqLib && ./configure LDFLAGS='-lcurl -lcrypto' && make -j 32 CXXFLAGS='-std=c++11' && make install
+	./install.sh
 
 $(PROG): $(OBJS) $(SEQLIB)
 	$(CXX) -o $@ $^ $(LDFLAGS)
@@ -29,6 +29,7 @@ $(PROG): $(OBJS) $(SEQLIB)
 	$(CXX) -O3 -c -o $@ $^ $(CXXFLAGS)
 
 clean:
+	@rm -rf $(SEQ)/bin
 	@rm -f $(PROG) *.o
 
 .PHONY: default all clean
