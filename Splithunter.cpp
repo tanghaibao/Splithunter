@@ -65,32 +65,49 @@ int run() {
     br.SetRegion(gr);
 
     BamRecord r;
+    // Global settings
     const bool hardclip = false;
     const float secondary_cutoff = .9;
     const int secondary_cap = 0;
     const int PAD = 30;       // threshold for a significant match
     const int INDEL = 10000;  // threshold for left-right distance
 
-    int total = 0, valid = 0;
+    int totalSR = 0, validSR = 0;
     string leftPart, rightPart;
+    unordered_map<string, GenomicRegionVector> cache;
 
     while (br.GetNextRecord(r)) {
-        total++;
+        totalSR++;
+        string readName = r.Qname();
+        int32_t readScore = r.NumAlignedBases();
+
+        // Store the pairs in a cache
+        if (r.PairedFlag() && (readScore >= r.Length() - PAD)) {
+            auto got = cache.find(readName);
+            if (got == cache.end()) {
+                GenomicRegionVector grv;
+                grv.push_back(r.AsGenomicRegion());
+                cache.insert({ readName, grv });
+            } else {
+                (got->second).push_back(r.AsGenomicRegion());
+            }
+        }
+
         if (r.NumClip() < PAD || r.NumClip() > r.Length() - PAD) continue;
 
         BamRecordVector results;
-        bwa.AlignSequence(r.Sequence(), r.Qname(),
+        bwa.AlignSequence(r.Sequence(), readName,
                           results, hardclip, secondary_cutoff, secondary_cap);
 
         if (results.empty()) continue;
 
         BamRecord i = results[0];
-        if (i.NumClip() < PAD || i.NumClip() > i.Length() - PAD) continue;
+        int32_t readLength = i.Length();
+        if (i.NumClip() < PAD || i.NumClip() > readLength - PAD) continue;
 
         // Bipartite alignment: 0-index coordinate at this point
         int32_t queryStart = i.AlignmentPosition();
         int32_t queryEnd   = i.AlignmentEndPosition();
-        int32_t readLength = i.Length();
         if (queryStart > PAD) {
             leftPart = i.Sequence().substr(0, queryStart);
             rightPart = i.Sequence().substr(queryStart, readLength);
@@ -100,10 +117,10 @@ int run() {
         } else continue;
 
         BamRecordVector resultsL, resultsR;
-        bwa.AlignSequence(leftPart, r.Qname() + "L",
+        bwa.AlignSequence(leftPart, readName + "L",
                           resultsL, hardclip, secondary_cutoff, secondary_cap);
 
-        bwa.AlignSequence(rightPart, r.Qname() + "R",
+        bwa.AlignSequence(rightPart, readName + "R",
                           resultsR, hardclip, secondary_cutoff, secondary_cap);
 
         int32_t leftScore = 0, rightScore = 0;
@@ -123,27 +140,48 @@ int run() {
 
         // Condition 2: Total score
         int32_t totalScore = leftScore + rightScore;
-        if (totalScore <= readLength - PAD / 2) continue;
+        if (totalScore < readLength - PAD / 2) continue;
 
         // Condition 3: Distinct region
         int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
         if (dist < INDEL) continue;
 
         // Verified alignment
-        valid++;
+        validSR++;
         cout << i;
         cout << "start: " << queryStart << " end: " << queryEnd << " len: " << readLength << endl;
         cout << leftRec;
         cout << rightRec;
         cout << "Score   : " << leftScore << " + " << rightScore << " = " << totalScore << endl;
         cout << "Distance: " << leftAlign << " - " << rightAlign << " = " << dist << endl;
-
-        // TODO: Make sure the left and right alignment are distinct
     }
 
-    cerr << "[Total SR] " << total << endl;
-    cerr << "[Valid SR] " << valid << endl;
-    cerr << "[SR ratio] " << valid * 1e6 / total << " ppm" << endl;
+    int32_t totalSP = 0, validSP = 0;
+    // Scan through the pairs
+    for (auto i : cache) {
+        // Condition 1: Properly paired
+        if (i.second.size() != 2) continue;
+        totalSP++;
+
+        GenomicRegion leftAlign, rightAlign;
+        leftAlign = i.second[0];
+        rightAlign = i.second[1];
+        int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
+
+        // Condition 2: Distinct region
+        if (dist < INDEL) continue;
+        validSP++;
+
+        cout << i.first << endl;
+        cout << "Distance: " << leftAlign << " - " << rightAlign << " = " << dist << endl;
+    }
+
+    cerr << "[Total SR] " << totalSR << endl;
+    cerr << "[Valid SR] " << validSR << endl;
+    cerr << "[SR ratio] " << validSR * 1e6 / totalSR << " ppm" << endl;
+    cerr << "[Total SP] " << totalSP << endl;
+    cerr << "[Valid SP] " << validSP << endl;
+    cerr << "[SP ratio] " << validSP * 1e6 / totalSP << " ppm" << endl;
 
     return 0;
 }
