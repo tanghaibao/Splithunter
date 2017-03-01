@@ -3,14 +3,15 @@
 #include "SeqLib/BWAWrapper.h"
 #include "SeqLib/BamReader.h"
 #include "SeqLib/SeqLibUtils.h"
+#include "SeqLib/GenomicRegion.h"
 
 using namespace SeqLib;
 using namespace std;
 
 
 static const char *USAGE_MESSAGE =
-"Program: Splithunter \n"
-"Contact: Haibao Tang \n"
+"Program: Splithunter\n"
+"Contact: Haibao Tang\n"
 "Usage: Splithunter bamfile [options]\n\n"
 "Commands:\n"
 "  --verbose,   -v        Set verbose output\n"
@@ -57,54 +58,72 @@ int run() {
     const int secondary_cap = 0;
     const int PAD = 30;  // threshold for a significant match
 
-    int counts = 0;
+    int total = 0, valid = 0;
     string leftPart, rightPart;
 
     while (br.GetNextRecord(r)) {
+        total++;
         BamRecordVector results;
         if (r.NumClip() < PAD || r.NumClip() > r.Length() - PAD) continue;
-        //cout << "BEFORE: " << r.GetCigar() << endl;
         bwa.AlignSequence(r.Sequence(), r.Qname(),
                           results, hardclip, secondary_cutoff, secondary_cap);
 
-        cout << "FOUND " << results.size() << " ALIGNMENTS" << endl;
-        for (auto& i : results)
-        {
-            if (i.NumClip() < PAD || i.NumClip() > i.Length() - PAD) continue;
-            //cout << "AFTER : " << i.GetCigar() << endl;
-            cout << i;
-            counts++;
-            // Bipartite alignment: 0-index coordinate at this point
-            int32_t queryStart = i.AlignmentPosition();
-            int32_t queryEnd   = i.AlignmentEndPosition();
-            int32_t readLength = i.Length();
-            cout << "start: " << queryStart << " end: " << queryEnd << " len: " << readLength << endl;
-            if (queryStart > PAD) {
-                leftPart = i.Sequence().substr(0, queryStart - 1);
-                rightPart = i.Sequence().substr(queryStart, readLength);
-            } else if (queryEnd < readLength - PAD) {
-                leftPart = i.Sequence().substr(0, queryEnd);
-                rightPart = i.Sequence().substr(queryEnd + 1, readLength);
-            } else continue;
-            cout << "leftPart : " << leftPart << endl;
-            cout << "rightPart: " << rightPart << endl;
+        if (results.empty()) continue;
 
-            BamRecordVector resultsL, resultsR;
-            bwa.AlignSequence(leftPart, r.Qname() + "L",
-                              resultsL, hardclip, secondary_cutoff, secondary_cap);
+        BamRecord i = results[0];
+        if (i.NumClip() < PAD || i.NumClip() > i.Length() - PAD) continue;
 
-            bwa.AlignSequence(rightPart, r.Qname() + "R",
-                              resultsR, hardclip, secondary_cutoff, secondary_cap);
+        // Bipartite alignment: 0-index coordinate at this point
+        int32_t queryStart = i.AlignmentPosition();
+        int32_t queryEnd   = i.AlignmentEndPosition();
+        int32_t readLength = i.Length();
+        if (queryStart > PAD) {
+            leftPart = i.Sequence().substr(0, queryStart);
+            rightPart = i.Sequence().substr(queryStart, readLength);
+        } else if (queryEnd < readLength - PAD) {
+            leftPart = i.Sequence().substr(0, queryEnd + 1);
+            rightPart = i.Sequence().substr(queryEnd + 1, readLength);
+        } else continue;
 
-            if (resultsL.size() > 0 && resultsR.size() > 0) {
-                for (auto& l : resultsL) cout << "[L] " << l;
-                for (auto& r : resultsR) cout << "[R] " << r;
-            }
+        BamRecordVector resultsL, resultsR;
+        bwa.AlignSequence(leftPart, r.Qname() + "L",
+                          resultsL, hardclip, secondary_cutoff, secondary_cap);
 
-            // TODO: Make sure the left and right alignment are distinct
-        }
+        bwa.AlignSequence(rightPart, r.Qname() + "R",
+                          resultsR, hardclip, secondary_cutoff, secondary_cap);
+
+        int32_t leftScore = 0, rightScore = 0;
+        GenomicRegion leftAlign, rightAlign;
+        BamRecord leftRec, rightRec;
+        if (resultsL.empty() || resultsR.empty()) continue;
+
+        leftRec = resultsL[0];
+        rightRec = resultsR[0];
+
+        leftAlign = leftRec.AsGenomicRegion();
+        leftRec.GetIntTag("AS", leftScore);
+        rightAlign = rightRec.AsGenomicRegion();
+        rightRec.GetIntTag("AS", rightScore);
+
+        int32_t totalScore = leftScore + rightScore;
+        if (totalScore <= readLength - PAD) continue;
+
+        // Verified alignment
+        valid++;
+        cout << i;
+        cout << "start: " << queryStart << " end: " << queryEnd << " len: " << readLength << endl;
+        cout << "leftPart : " << leftPart << endl;
+        cout << "rightPart: " << rightPart << endl;
+        cout << "[L] " << leftRec << " => " << leftAlign << endl;
+        cout << "[R] " << rightRec << " => " << rightAlign << endl;
+        cout << "Total score: " << leftScore << " + " << rightScore
+             << " = " << totalScore << endl;
+
+        // TODO: Make sure the left and right alignment are distinct
     }
-    cout << "Number of alignments:" << counts << endl;
+
+    cerr << "Total alignments:" << total << endl;
+    cerr << "Valid alignments:" << valid << endl;
 
     return 0;
 }
