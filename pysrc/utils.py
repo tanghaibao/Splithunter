@@ -50,10 +50,6 @@ def get_abs_path(link_name):
         return get_abs_path(source)
 
 
-datadir = get_abs_path(op.join(op.dirname(__file__), 'data'))
-datafile = lambda x: op.join(datadir, x)
-
-
 def mkdir(dirname, overwrite=False, logger=None):
     """
     Wraps around os.mkdir(), but checks for existence first.

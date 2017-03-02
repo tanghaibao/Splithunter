@@ -17,12 +17,16 @@ import logging
 
 import pandas as pd
 
-from pysrc.utils import DefaultHelpParser, mkdir
+from pysrc.utils import DefaultHelpParser, mkdir, get_abs_path
 from datetime import timedelta
 from multiprocessing import Pool, cpu_count
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
+
+datadir = get_abs_path(op.join(op.dirname(__file__), 'data'))
+datafile = lambda x: op.join(datadir, x)
+HLI_BAMS = datafile("HLI_bams.csv.gz")
 
 
 def set_argparse():
@@ -128,8 +132,6 @@ def get_HLI_bam(samplekey):
     """
     From @176449128, retrieve the S3 path of the BAM
     """
-    from sjtrec.meta import HLI_BAMS
-
     df = pd.read_csv(HLI_BAMS, index_col=0, dtype=str, header=None,
                      names=["SampleKey", "BAM"])
     return df.ix[samplekey]["BAM"]
