@@ -22,7 +22,8 @@ static const char *DEBUG = "[ DEBUG ] ";
 namespace opt {
     static bool verbose = false;
     static string bam;
-    static string bed = "data/TR_IG.bed";
+    static string bed = "";
+    static string path = "";
     static string samplekey = "";
 }
 
@@ -76,7 +77,7 @@ int run(BED& bedEntry, Json::Value& root) {
 
     // Make an in-memory BWA-MEM index of region
     BWAWrapper bwa;
-    bwa.LoadIndex("data/" + name);
+    bwa.LoadIndex(opt::path + "/data/" + name);
 
     BamReader br;
     br.Open(opt::bam);
@@ -177,16 +178,16 @@ int run(BED& bedEntry, Json::Value& root) {
         // Verified alignment
         validSR++;
         if (opt::verbose) {
-            cout << DEBUG << i;
-            cout << DEBUG << "start = " << queryStart << " end = " << queryEnd
+            cerr << DEBUG << i;
+            cerr << DEBUG << "start = " << queryStart << " end = " << queryEnd
                           << " len = " << readLength << endl;
-            cout << DEBUG << leftRec;
-            cout << DEBUG << rightRec;
-            cout << DEBUG << "SR Score    " << leftScore << " + "
+            cerr << DEBUG << leftRec;
+            cerr << DEBUG << rightRec;
+            cerr << DEBUG << "SR Score    " << leftScore << " + "
                                             << rightScore << " = " << totalScore << endl;
-            cout << DEBUG << "SR Distance " << leftAlign << " - "
+            cerr << DEBUG << "SR Distance " << leftAlign << " - "
                                             << rightAlign << " = " << dist << endl;
-            cout << DEBUG << "Entropy     " << leftEnt << " " << rightEnt << endl;
+            cerr << DEBUG << "Entropy     " << leftEnt << " " << rightEnt << endl;
         }
     }
 
@@ -210,14 +211,14 @@ int run(BED& bedEntry, Json::Value& root) {
 
         validSP++;
         if (opt::verbose) {
-            cout << DEBUG << i.first << endl;
-            cout << DEBUG << "SP Distance " << leftAlign << " - "
+            cerr << DEBUG << i.first << endl;
+            cerr << DEBUG << "SP Distance " << leftAlign << " - "
                                             << rightAlign << " = " << dist << endl;
         }
     }
 
-    double SR_PPM = validSR * 1e6 / totalSR;
-    double SP_PPM = validSP * 1e6 / totalSP;
+    double SR_PPM = totalSR ? validSR * 1e6 / totalSR : 0;
+    double SP_PPM = totalSP ? validSP * 1e6 / totalSP : 0;
     cerr << "[  SR ratio ] " << validSR << " / " << totalSR << " = "
                              << SR_PPM << " ppm" << endl;
     cerr << "[  SP ratio ] " << validSP << " / " << totalSP << " = "
@@ -253,6 +254,10 @@ int main(int argc, char** argv) {
     if (argc > 1)
         opt::bam = string(argv[1]);
 
+    string executable(argv[0]);
+    opt::path = executable.substr(0, executable.find_last_of("\\/"));
+    cerr << opt::path << endl;
+
     bool die = false;
     bool help = false;
 
@@ -266,10 +271,14 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (die || help || opt::bed.empty() || opt::bam.empty()) {
+    if (die || help || opt::bam.empty()) {
         cerr << "\n" << USAGE_MESSAGE;
         if (die) exit(EXIT_FAILURE);
         else exit(EXIT_SUCCESS);
+    }
+
+    if (opt::bed.empty()) {
+        opt::bed = opt::path + "/data/TR_IG.bed";
     }
 
     // JSON result object

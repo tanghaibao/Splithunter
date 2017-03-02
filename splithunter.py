@@ -82,36 +82,43 @@ def run(arg):
     :return: dict of calls
     '''
     samplekey, bam, log = arg
+    exec_path = op.join(op.abspath(op.dirname(__file__)), "Splithunter")
+
     cwd = os.getcwd()
     mkdir(samplekey)
     os.chdir(samplekey)
 
-    calls = {}
     if check_bam(bam) is None:
-        return {'samplekey': samplekey, 'bam': bam, 'calls': calls}
+        return { 'samplekey' : samplekey }
 
-    cmd = "Splithunter {} -s {}".format(bam, samplekey)
+    cmd = "{} {} -s {}".format(exec_path, bam, samplekey)
     try:
-        sh(cmd)
+        print >> sys.stderr, cmd
+        os.system(cmd)
+        jsonfile = "{}.json".format(samplekey)
+
+        # Read JSON from program output
+        fp = open(jsonfile)
+        res = json.load(fp)
+        fp.close()
     except Exception as e:
         logger.error("Exception on `{}` {} ({})".format(bam, e))
 
     os.chdir(cwd)
     shutil.rmtree(samplekey)
-    return {'samplekey': samplekey, 'bam': bam, 'calls': calls}
+    return res
 
 
 def to_json(results):
-    sampleid = results['samplekey']
-    bam = results['bam']
-    calls = results['calls']
-    if not calls:
-        logger.debug("No calls are found for {} `{}`".format(sampleid, bam))
+    samplekey = results['samplekey']
+    if not results:
+        logger.debug("No calls are found for {} `{}`".format(samplekey, bam))
         return
 
-    jsonfile = ".".join((sampleid, "json"))
-    js = json.dumps(results)
-    print js
+    jsonfile = ".".join((samplekey, "json"))
+    js = json.dumps(results, sort_keys=True, indent=4, separators=(',', ': '))
+
+    # Write JSON with Python
     fw = open(jsonfile, "w")
     print >> fw, js
     fw.close()
