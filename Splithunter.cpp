@@ -236,7 +236,6 @@ int run(BED& bedEntry, Json::Value& root) {
         ofs.close();
     }
 
-    cerr << root << endl;
     cerr << endl;
 
     return 0;
@@ -288,6 +287,8 @@ int main(int argc, char** argv) {
     while(bed.GetNextBed(bedEntry)) {
         run(bedEntry, root);
     }
+
+    cerr << root << endl;
 
     return EXIT_SUCCESS;
 }
