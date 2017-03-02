@@ -41,7 +41,7 @@ static double entropy(const string& seq) {
     if (l <= 0) return 0;
 
     int k = (l < 64) ? l: 64;
-    for (int i = 0; i < l - 2; i++) {
+    for (int i = 0; i < l; i++) {
         string trinuc = seq.substr(i, 3);
         auto j = counts.find(trinuc);
         if (j == counts.end()) {
@@ -224,12 +224,10 @@ int run() {
         }
     }
 
-    cerr << "[  Total SR ] " << totalSR << endl;
-    cerr << "[  Valid SR ] " << validSR << endl;
-    cerr << "[  SR ratio ] " << validSR * 1e6 / totalSR << " ppm" << endl;
-    cerr << "[  Total SP ] " << totalSP << endl;
-    cerr << "[  Valid SP ] " << validSP << endl;
-    cerr << "[  SP ratio ] " << validSP * 1e6 / totalSP << " ppm" << endl;
+    cerr << "[  SR ratio ] " << validSR << " / " << totalSR << " = "
+                             << validSR * 1e6 / totalSR << " ppm" << endl;
+    cerr << "[  SP ratio ] " << validSP << " / " << totalSP << " = "
+                             << validSP * 1e6 / totalSP << " ppm" << endl;
     cerr << endl;
 
     return 0;
