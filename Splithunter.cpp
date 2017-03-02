@@ -1,9 +1,9 @@
 #include <getopt.h>
 #include <json/json.h>
-#include "SeqLib/RefGenome.h"
 #include "SeqLib/BWAWrapper.h"
 #include "SeqLib/BamReader.h"
 #include "SeqLib/GenomicRegion.h"
+#include "bedFile/bedFile.h"
 
 using namespace SeqLib;
 using namespace std;
@@ -15,7 +15,6 @@ static const char *USAGE_MESSAGE =
 "Usage: Splithunter bamfile [options]\n\n"
 "Commands:\n"
 "  --verbose,   -v          Set verbose output\n"
-"  --reference, -r <file>   Reference genome if using BWA-MEM realignment\n"
 "  --samplekey, -s <string> SampleKey, output will be written `samplekey.json`\n"
 "\nReport bugs to <htang@humanlongevity.com>\n\n";
 static const char *DEBUG = "[ DEBUG ] ";
@@ -23,15 +22,15 @@ static const char *DEBUG = "[ DEBUG ] ";
 namespace opt {
     static bool verbose = false;
     static string bam;
-    static string reference = "/mnt/ref/hg38.upper.fa";
+    static string bed = "data/TR_IG.bed";
     static string samplekey = "";
 }
 
-static const char* shortopts = "hvb:r:s:";
+static const char* shortopts = "hvb:s:";
 static const struct option longopts[] = {
     { "help",       no_argument,       NULL, 'h' },
     { "verbose",    no_argument,       NULL, 'v' },
-    { "reference",  required_argument, NULL, 'r' },
+    { "bedfile",    required_argument, NULL, 'b' },
     { "samplekey",  required_argument, NULL, 's' },
     { NULL, 0, NULL, 0 }
 };
@@ -64,35 +63,20 @@ static double entropy(const string& seq) {
 }
 
 // Where work is done
-int run() {
-    RefGenome ref;
-    ref.LoadIndex(opt::reference);
-
-    const string tchr = "chr14";
-    const int32_t tpos1 = 21621904;
-    const int32_t tpos2 = 22552132;
-    const string name = "TRA";
+int run(BED& bedEntry, Json::Value& root) {
+    string tchr = bedEntry.chrom;
+    int32_t tpos1 = bedEntry.start;
+    int32_t tpos2 = bedEntry.end;
+    string name = bedEntry.name;
     ostringstream ss;
     ss << tchr << ":" << tpos1 << "-" << tpos2;
     const string tchrFull = ss.str();
 
-    cerr << "[ BAM input ] " << opt::bam << endl;
-    cerr << "[ Reference ] " << opt::reference << endl;
     cerr << "[    Target ] " << name << " (" << tchrFull << ")" << endl;
-
-    // JSON result object
-    Json::Value root;
-    root["bam"] = opt::bam;
-    root["samplekey"] = opt::samplekey;
-
-    // get sequence at given locus
-    string seq = ref.QueryRegion(tchr, tpos1, tpos2);
-    //cout << seq << endl;
 
     // Make an in-memory BWA-MEM index of region
     BWAWrapper bwa;
-    UnalignedSequenceVector usv = {{name, seq}};
-    bwa.ConstructIndex(usv);
+    bwa.LoadIndex("data/" + name);
 
     BamReader br;
     br.Open(opt::bam);
@@ -277,18 +261,33 @@ int main(int argc, char** argv) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
             case 'v': opt::verbose = true; break;
-            case 'r': arg >> opt::reference; break;
+            case 'b': arg >> opt::bed; break;
             case 's': arg >> opt::samplekey; break;
             default: die = true;
         }
     }
 
-    if (die || help || opt::reference.empty() || opt::bam.empty()) {
+    if (die || help || opt::bed.empty() || opt::bam.empty()) {
         cerr << "\n" << USAGE_MESSAGE;
         if (die) exit(EXIT_FAILURE);
         else exit(EXIT_SUCCESS);
     }
 
-    run();
+    // JSON result object
+    Json::Value root;
+    root["bam"] = opt::bam;
+    root["samplekey"] = opt::samplekey;
+
+    cerr << "[ BED input ] " << opt::bed << endl;
+    cerr << "[ BAM input ] " << opt::bam << endl;
+
+    // Parse BEDFILE
+    BED bedEntry;
+    BedFile bed(opt::bed);
+    bed.Open();
+    while(bed.GetNextBed(bedEntry)) {
+        run(bedEntry, root);
+    }
+
     return EXIT_SUCCESS;
 }

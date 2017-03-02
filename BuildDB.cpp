@@ -37,40 +37,28 @@ static const struct option longopts[] = {
 };
 
 // Where work is done
-int run() {
-    RefGenome ref;
-    ref.LoadIndex(opt::reference);
+int run(BED& bedEntry, RefGenome& ref) {
+    string tchr = bedEntry.chrom;
+    int32_t tpos1 = bedEntry.start;
+    int32_t tpos2 = bedEntry.end;
+    string name = bedEntry.name;
+    ostringstream ss;
+    ss << tchr << ":" << tpos1 << "-" << tpos2;
+    const string tchrFull = ss.str();
 
-    cerr << "[ BED input ] " << opt::bed << endl;
-    cerr << "[ Reference ] " << opt::reference << endl;
+    cerr << "[    Target ] " << name << " (" << tchrFull << ")" << endl;
 
-    // Parse BEDFILE
-    BED bedEntry;
-    BedFile bed(opt::bed);
-    bed.Open();
-    while(bed.GetNextBed(bedEntry)) {
-        string tchr = bedEntry.chrom;
-        int32_t tpos1 = bedEntry.start;
-        int32_t tpos2 = bedEntry.end;
-        string name = bedEntry.name;
-        ostringstream ss;
-        ss << tchr << ":" << tpos1 << "-" << tpos2;
-        const string tchrFull = ss.str();
+    // get sequence at given locus
+    string seq = ref.QueryRegion(tchr, tpos1, tpos2);
+    //cout << seq << endl;
 
-        cerr << "[    Target ] " << name << " (" << tchrFull << ")" << endl;
+    // Make an in-memory BWA-MEM index of region
+    BWAWrapper bwa;
+    UnalignedSequenceVector usv = {{name, seq}};
+    bwa.ConstructIndex(usv);
 
-        // get sequence at given locus
-        string seq = ref.QueryRegion(tchr, tpos1, tpos2);
-        //cout << seq << endl;
-
-        // Make an in-memory BWA-MEM index of region
-        BWAWrapper bwa;
-        UnalignedSequenceVector usv = {{name, seq}};
-        bwa.ConstructIndex(usv);
-
-        // Write to disk
-        bwa.WriteIndex(opt::outdir + "/" + name);
-    }
+    // Write to disk
+    bwa.WriteIndex(opt::outdir + "/" + name);
 
     return 0;
 }
@@ -105,6 +93,19 @@ int main(int argc, char** argv) {
         else exit(EXIT_SUCCESS);
     }
 
-    run();
+    RefGenome ref;
+    ref.LoadIndex(opt::reference);
+
+    cerr << "[ BED input ] " << opt::bed << endl;
+    cerr << "[ Reference ] " << opt::reference << endl;
+
+    // Parse BEDFILE
+    BED bedEntry;
+    BedFile bed(opt::bed);
+    bed.Open();
+    while(bed.GetNextBed(bedEntry)) {
+        run(bedEntry, ref);
+    }
+
     return EXIT_SUCCESS;
 }
