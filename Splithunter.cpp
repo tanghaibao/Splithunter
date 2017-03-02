@@ -14,8 +14,9 @@ static const char *USAGE_MESSAGE =
 "Contact: Haibao Tang\n"
 "Usage: Splithunter bamfile [options]\n\n"
 "Commands:\n"
-"  --verbose,   -v        Set verbose output\n"
-"  --reference, -r <file> Reference genome if using BWA-MEM realignment\n"
+"  --verbose,   -v          Set verbose output\n"
+"  --reference, -r <file>   Reference genome if using BWA-MEM realignment\n"
+"  --samplekey, -s <string> SampleKey, output will be written `samplekey.json`\n"
 "\nReport bugs to <htang@humanlongevity.com>\n\n";
 static const char *DEBUG = "[ DEBUG ] ";
 
@@ -23,13 +24,15 @@ namespace opt {
     static bool verbose = false;
     static string bam;
     static string reference = "/mnt/ref/hg38.upper.fa";
+    static string samplekey = "";
 }
 
-static const char* shortopts = "hvb:r:";
+static const char* shortopts = "hvb:r:s:";
 static const struct option longopts[] = {
-    { "help",                    no_argument, NULL, 'h' },
-    { "verbose",                 no_argument, NULL, 'v' },
-    { "reference",               required_argument, NULL, 'r' },
+    { "help",       no_argument,       NULL, 'h' },
+    { "verbose",    no_argument,       NULL, 'v' },
+    { "reference",  required_argument, NULL, 'r' },
+    { "samplekey",  required_argument, NULL, 's' },
     { NULL, 0, NULL, 0 }
 };
 
@@ -80,6 +83,7 @@ int run() {
     // JSON result object
     Json::Value root;
     root["bam"] = opt::bam;
+    root["samplekey"] = opt::samplekey;
 
     // get sequence at given locus
     string seq = ref.QueryRegion(tchr, tpos1, tpos2);
@@ -242,6 +246,12 @@ int run() {
     root[name + ".SP-TOTAL"] = totalSP;
     root[name + ".SP-PPM"] = SP_PPM;
 
+    if (opt::samplekey != "") {
+        ofstream ofs(opt::samplekey + ".json", ofstream::out);
+        ofs << root << endl;
+        ofs.close();
+    }
+
     cerr << root << endl;
     cerr << endl;
 
@@ -268,6 +278,7 @@ int main(int argc, char** argv) {
         switch (c) {
             case 'v': opt::verbose = true; break;
             case 'r': arg >> opt::reference; break;
+            case 's': arg >> opt::samplekey; break;
             default: die = true;
         }
     }
