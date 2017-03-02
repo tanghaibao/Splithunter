@@ -33,15 +33,41 @@ static const struct option longopts[] = {
 };
 
 
+// https://academic.oup.com/bioinformatics/article/27/6/863/236283/Quality-control-and-preprocessing-of-metagenomic
+// Schmieder and Edwards. Quality control and preprocessing of metagenomic datasets. (2011) Bioinformatics
+static double entropy(const string& seq) {
+    unordered_map<string, int> counts;
+    int l = seq.length() - 2;
+    if (l <= 0) return 0;
+
+    int k = (l < 64) ? l: 64;
+    for (int i = 0; i < l - 2; i++) {
+        string trinuc = seq.substr(i, 3);
+        auto j = counts.find(trinuc);
+        if (j == counts.end()) {
+            counts.insert({ trinuc, 1 });
+        } else {
+            j->second++;
+        }
+    }
+
+    double res = 0.0;
+    for (auto i: counts) {
+        //cout << i.first << " : " << i.second << endl;
+        double f = (double) i.second / l;
+        res += f * log(f) / log(k);
+    }
+    return res * -100;
+}
+
 // Where work is done
 int run() {
-
     RefGenome ref;
     ref.LoadIndex(opt::reference);
 
     const string tchr = "chr14";
-    const int32_t tpos1 = 22386000;
-    const int32_t tpos2 = 22477000;
+    const int32_t tpos1 = 21621904;
+    const int32_t tpos2 = 22552132;
     const string name = "TRA";
     ostringstream ss;
     ss << tchr << ":" << tpos1 << "-" << tpos2;
@@ -72,10 +98,11 @@ int run() {
     const int secondary_cap = 0;
     const int PAD = 30;       // threshold for a significant match
     const int INDEL = 10000;  // threshold for left-right distance
+    const int MINENT = 50;    // threshold for sequence complexity
 
     int totalSR = 0, validSR = 0;
     string leftPart, rightPart;
-    unordered_map<string, GenomicRegionVector> cache;
+    unordered_map<string, BamRecordVector> cache;
 
     while (br.GetNextRecord(r)) {
         if (r.DuplicateFlag()) continue;
@@ -88,11 +115,11 @@ int run() {
         if (r.PairedFlag() && (readScore >= r.Length() - PAD)) {
             auto got = cache.find(readName);
             if (got == cache.end()) {
-                GenomicRegionVector grv;
-                grv.push_back(r.AsGenomicRegion());
-                cache.insert({ readName, grv });
+                BamRecordVector brv;
+                brv.push_back(r);
+                cache.insert({ readName, brv });
             } else {
-                (got->second).push_back(r.AsGenomicRegion());
+                (got->second).push_back(r);
             }
         }
 
@@ -149,6 +176,11 @@ int run() {
         int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
         if (dist < INDEL) continue;
 
+        // Condition 4: Complexity filter
+        double leftEnt = entropy(leftPart);
+        double rightEnt = entropy(rightPart);
+        if ((leftEnt < MINENT) || (rightEnt < MINENT)) continue;
+
         // Verified alignment
         validSR++;
         if (opt::verbose) {
@@ -161,6 +193,7 @@ int run() {
                                             << rightScore << " = " << totalScore << endl;
             cout << DEBUG << "SR Distance " << leftAlign << " - "
                                             << rightAlign << " = " << dist << endl;
+            cout << DEBUG << "ENTROPY " << leftEnt << " " << rightEnt << endl;
         }
     }
 
@@ -171,15 +204,19 @@ int run() {
         if (i.second.size() != 2) continue;
         totalSP++;
 
-        GenomicRegion leftAlign, rightAlign;
-        leftAlign = i.second[0];
-        rightAlign = i.second[1];
-        int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
-
         // Condition 2: Distinct region
+        GenomicRegion leftAlign, rightAlign;
+        leftAlign = i.second[0].AsGenomicRegion();
+        rightAlign = i.second[1].AsGenomicRegion();
+        int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
         if (dist < INDEL) continue;
-        validSP++;
 
+        // Condition 3: Sequence complexity
+        double leftEnt = entropy(i.second[0].Sequence());
+        double rightEnt = entropy(i.second[1].Sequence());
+        if ((leftEnt < MINENT) || (rightEnt < MINENT)) continue;
+
+        validSP++;
         if (opt::verbose) {
             cout << DEBUG << i.first << endl;
             cout << DEBUG << "SP Distance " << leftAlign << " - "
