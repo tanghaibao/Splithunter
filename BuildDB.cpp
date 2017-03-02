@@ -22,7 +22,7 @@ static const char *USAGE_MESSAGE =
 namespace opt {
     static bool verbose = false;
     static string bed = "";
-    static string outdir = "data/";
+    static string outdir = "data";
     static string reference = "/mnt/ref/hg38.upper.fa";
 }
 
@@ -41,34 +41,36 @@ int run() {
     RefGenome ref;
     ref.LoadIndex(opt::reference);
 
+    cerr << "[ BED input ] " << opt::bed << endl;
+    cerr << "[ Reference ] " << opt::reference << endl;
+
     // Parse BEDFILE
     BED bedEntry;
     BedFile bed(opt::bed);
     bed.Open();
     while(bed.GetNextBed(bedEntry)) {
-        cout << bedEntry.name << endl;
+        string tchr = bedEntry.chrom;
+        int32_t tpos1 = bedEntry.start;
+        int32_t tpos2 = bedEntry.end;
+        string name = bedEntry.name;
+        ostringstream ss;
+        ss << tchr << ":" << tpos1 << "-" << tpos2;
+        const string tchrFull = ss.str();
+
+        cerr << "[    Target ] " << name << " (" << tchrFull << ")" << endl;
+
+        // get sequence at given locus
+        string seq = ref.QueryRegion(tchr, tpos1, tpos2);
+        //cout << seq << endl;
+
+        // Make an in-memory BWA-MEM index of region
+        BWAWrapper bwa;
+        UnalignedSequenceVector usv = {{name, seq}};
+        bwa.ConstructIndex(usv);
+
+        // Write to disk
+        bwa.WriteIndex(opt::outdir + "/" + name);
     }
-
-    const string tchr = "chr14";
-    const int32_t tpos1 = 21621904;
-    const int32_t tpos2 = 22552132;
-    const string name = "TRA";
-    ostringstream ss;
-    ss << tchr << ":" << tpos1 << "-" << tpos2;
-    const string tchrFull = ss.str();
-
-    cerr << "[ BED input ] " << opt::bed << endl;
-    cerr << "[ Reference ] " << opt::reference << endl;
-    cerr << "[    Target ] " << name << " (" << tchrFull << ")" << endl;
-
-    // get sequence at given locus
-    string seq = ref.QueryRegion(tchr, tpos1, tpos2);
-    //cout << seq << endl;
-
-    // Make an in-memory BWA-MEM index of region
-    BWAWrapper bwa;
-    UnalignedSequenceVector usv = {{name, seq}};
-    bwa.ConstructIndex(usv);
 
     return 0;
 }
