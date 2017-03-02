@@ -102,6 +102,7 @@ int run() {
 
     int totalSR = 0, validSR = 0;
     string leftPart, rightPart;
+    // Store the pairs in a cache
     unordered_map<string, BamRecordVector> cache;
 
     while (br.GetNextRecord(r)) {
@@ -111,7 +112,7 @@ int run() {
         string readName = r.Qname();
         int32_t readScore = r.NumAlignedBases();
 
-        // Store the pairs in a cache
+        // SP Condition 1: Each part is significant
         if (r.PairedFlag() && (readScore >= r.Length() - PAD)) {
             auto got = cache.find(readName);
             if (got == cache.end()) {
@@ -161,22 +162,22 @@ int run() {
         leftRec = resultsL[0];
         rightRec = resultsR[0];
 
-        // Condition 1: Each part is significant
+        // SR Condition 1: Each part is significant
         leftAlign = leftRec.AsGenomicRegion();
         leftRec.GetIntTag("AS", leftScore);
         rightAlign = rightRec.AsGenomicRegion();
         rightRec.GetIntTag("AS", rightScore);
         if (leftScore < PAD || rightScore < PAD) continue;
 
-        // Condition 2: Total score
+        // SR Condition 2: Total score
         int32_t totalScore = leftScore + rightScore;
         if (totalScore < readLength - PAD / 2) continue;
 
-        // Condition 3: Distinct region
+        // SR Condition 3: Distinct region
         int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
         if (dist < INDEL) continue;
 
-        // Condition 4: Complexity filter
+        // SR Condition 4: Complexity filter
         double leftEnt = entropy(leftPart);
         double rightEnt = entropy(rightPart);
         if ((leftEnt < MINENT) || (rightEnt < MINENT)) continue;
@@ -193,25 +194,24 @@ int run() {
                                             << rightScore << " = " << totalScore << endl;
             cout << DEBUG << "SR Distance " << leftAlign << " - "
                                             << rightAlign << " = " << dist << endl;
-            cout << DEBUG << "ENTROPY " << leftEnt << " " << rightEnt << endl;
+            cout << DEBUG << "Entropy     " << leftEnt << " " << rightEnt << endl;
         }
     }
 
     int32_t totalSP = 0, validSP = 0;
     // Scan through the pairs
     for (auto i : cache) {
-        // Condition 1: Properly paired
         if (i.second.size() != 2) continue;
         totalSP++;
 
-        // Condition 2: Distinct region
+        // SP Condition 2: Distinct region
         GenomicRegion leftAlign, rightAlign;
         leftAlign = i.second[0].AsGenomicRegion();
         rightAlign = i.second[1].AsGenomicRegion();
         int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
         if (dist < INDEL) continue;
 
-        // Condition 3: Sequence complexity
+        // SP Condition 3: Sequence complexity
         double leftEnt = entropy(i.second[0].Sequence());
         double rightEnt = entropy(i.second[1].Sequence());
         if ((leftEnt < MINENT) || (rightEnt < MINENT)) continue;
