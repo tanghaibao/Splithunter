@@ -41,6 +41,14 @@ int run() {
     RefGenome ref;
     ref.LoadIndex(opt::reference);
 
+    // Parse BEDFILE
+    BED bedEntry;
+    BedFile bed(opt::bed);
+    bed.Open();
+    while(bed.GetNextBed(bedEntry)) {
+        cout << bedEntry.name << endl;
+    }
+
     const string tchr = "chr14";
     const int32_t tpos1 = 21621904;
     const int32_t tpos2 = 22552132;

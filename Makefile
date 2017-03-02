@@ -1,9 +1,9 @@
 SEQ=SeqLib
-BED=bedFile
 CXX=g++
 CXXFLAGS+=-I. -I$(SEQ) -I$(SEQ)/htslib -std=c++11 -DNDEBUG -W -Wall -pedantic
 SEQLIB=$(SEQ)/bin/libseqlib.a
-LDFLAGS+=$(SEQ)/bin/libseqlib.a $(SEQ)/bin/libbwa.a $(SEQ)/bin/libfml.a $(SEQ)/bin/libhts.a $(BED)/libbedFile.a
+BEDLIB=bedFile/libbedFile.a
+LDFLAGS+=$(SEQ)/bin/libseqlib.a $(SEQ)/bin/libbwa.a $(SEQ)/bin/libfml.a $(SEQ)/bin/libhts.a $(BEDLIB)
 
 OS := $(shell uname)
 ifeq ($(OS), Darwin)
@@ -22,10 +22,13 @@ $(SEQLIB):
 	git submodule update --init --recursive
 	./install.sh
 
-Splithunter: Splithunter.o $(SEQLIB)
+$(BEDLIB):
+	cd bedFile && $(MAKE)
+
+Splithunter: Splithunter.o $(SEQLIB) $(BEDLIB)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
-BuildDB: BuildDB.o $(SEQLIB)
+BuildDB: BuildDB.o $(SEQLIB) $(BEDLIB)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
 %.o: %.cpp
