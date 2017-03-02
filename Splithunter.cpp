@@ -283,16 +283,12 @@ int main(int argc, char** argv) {
         }
     }
 
-    run();
-    /*
-    struct timespec start;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    cout << displayRuntime(start) << endl;
-    */
-
     if (die || help || opt::reference.empty() || opt::bam.empty()) {
         cerr << "\n" << USAGE_MESSAGE;
         if (die) exit(EXIT_FAILURE);
         else exit(EXIT_SUCCESS);
     }
+
+    run();
+    return EXIT_SUCCESS;
 }
