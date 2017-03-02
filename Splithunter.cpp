@@ -1,4 +1,5 @@
 #include <getopt.h>
+#include <json/json.h>
 #include "SeqLib/RefGenome.h"
 #include "SeqLib/BWAWrapper.h"
 #include "SeqLib/BamReader.h"
@@ -53,7 +54,6 @@ static double entropy(const string& seq) {
 
     double res = 0.0;
     for (auto i: counts) {
-        //cout << i.first << " : " << i.second << endl;
         double f = (double) i.second / l;
         res += f * log(f) / log(k);
     }
@@ -76,6 +76,10 @@ int run() {
     cerr << "[ BAM input ] " << opt::bam << endl;
     cerr << "[ Reference ] " << opt::reference << endl;
     cerr << "[    Target ] " << name << " (" << tchrFull << ")" << endl;
+
+    // JSON result object
+    Json::Value root;
+    root["bam"] = opt::bam;
 
     // get sequence at given locus
     string seq = ref.QueryRegion(tchr, tpos1, tpos2);
@@ -224,10 +228,21 @@ int run() {
         }
     }
 
+    double SR_PPM = validSR * 1e6 / totalSR;
+    double SP_PPM = validSP * 1e6 / totalSP;
     cerr << "[  SR ratio ] " << validSR << " / " << totalSR << " = "
-                             << validSR * 1e6 / totalSR << " ppm" << endl;
+                             << SR_PPM << " ppm" << endl;
     cerr << "[  SP ratio ] " << validSP << " / " << totalSP << " = "
-                             << validSP * 1e6 / totalSP << " ppm" << endl;
+                             << SP_PPM << " ppm" << endl;
+
+    root[name + ".SR-SIGNAL"] = validSR;
+    root[name + ".SR-TOTAL"] = totalSR;
+    root[name + ".SR-PPM"] = SR_PPM;
+    root[name + ".SP-SIGNAL"] = validSP;
+    root[name + ".SP-TOTAL"] = totalSP;
+    root[name + ".SP-PPM"] = SP_PPM;
+
+    cerr << root << endl;
     cerr << endl;
 
     return 0;
