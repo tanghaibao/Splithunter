@@ -256,7 +256,6 @@ int main(int argc, char** argv) {
 
     string executable(argv[0]);
     opt::path = executable.substr(0, executable.find_last_of("\\/"));
-    cerr << opt::path << endl;
 
     bool die = false;
     bool help = false;
