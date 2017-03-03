@@ -92,8 +92,9 @@ def run(arg):
     mkdir(samplekey)
     os.chdir(samplekey)
 
+    res = { 'samplekey': samplekey, 'bam': bam }
     if check_bam(bam) is None:
-        return { 'samplekey' : samplekey }
+        return res
 
     cmd = "{} {} -s {}".format(exec_path, bam, samplekey)
     try:
@@ -106,7 +107,7 @@ def run(arg):
         res = json.load(fp)
         fp.close()
     except Exception as e:
-        logger.error("Exception on `{}` {} ({})".format(bam, e))
+        logger.error("Exception on `{}` {} ({})".format(bam, samplekey, e))
 
     os.chdir(cwd)
     shutil.rmtree(samplekey)
@@ -207,6 +208,8 @@ if __name__ == '__main__':
     # Parallel processing
     for i, (samplekey, bam) in enumerate(samples):
         jsonfile = ".".join((samplekey, "json"))
+        if op.exists(jsonfile):
+            continue
         task_args.append((samplekey, bam, args.log))
 
     cpus = min(args.cpus, len(task_args))
