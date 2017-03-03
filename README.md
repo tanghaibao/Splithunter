@@ -19,6 +19,20 @@ Identify split reads and read pairs in a particular region.
   make
   ```
 
+## Usage
+
+- Run batch jobs in ``HLI_bams.csv``:
+
+    ```bash
+    python splithunter.py HLI_bams.csv --workdir hli
+    ```
+
+- Collect results into a TSV file:
+
+    ```bash
+    python splithunter_report.py hli/*.json --tsv hli.splithunter.tsv
+    ```
+
 ## Build custom database
 
 The default regions includes `TRA`, `TRB`, `TRG`, `IGH`, `IGK`, `IGL`. If
