@@ -103,6 +103,9 @@ int run(BED& bedEntry, Json::Value& root) {
     // Store the pairs in a cache
     unordered_map<string, BamRecordVector> cache;
 
+    // Details of the alignments
+    stringstream SR_details, SP_details;
+
     while (br.GetNextRecord(r)) {
         if (r.DuplicateFlag()) continue;
 
@@ -169,7 +172,7 @@ int run(BED& bedEntry, Json::Value& root) {
 
         // SR Condition 2: Total score
         int32_t totalScore = leftScore + rightScore;
-        if (totalScore < readLength - PAD) continue;
+        if (totalScore < readLength - PAD / 2) continue;
 
         // SR Condition 3: Distinct region
         int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
@@ -182,6 +185,7 @@ int run(BED& bedEntry, Json::Value& root) {
 
         // Verified alignment
         validSR++;
+        SR_details << leftAlign << "|" << rightAlign << ";";
         if (opt::verbose) {
             cerr << DEBUG << i;
             cerr << DEBUG << "start = " << queryStart << " end = " << queryEnd
@@ -215,6 +219,7 @@ int run(BED& bedEntry, Json::Value& root) {
         if ((leftEnt < MINENT) || (rightEnt < MINENT)) continue;
 
         validSP++;
+        SP_details << leftAlign << "|" << rightAlign << ";";
         if (opt::verbose) {
             cerr << DEBUG << i.first << endl;
             cerr << DEBUG << "SP Distance " << leftAlign << " - "
@@ -232,9 +237,11 @@ int run(BED& bedEntry, Json::Value& root) {
     root[name + ".SR-SIGNAL"] = validSR;
     root[name + ".SR-TOTAL"] = totalSR;
     root[name + ".SR-PPM"] = SR_PPM;
+    root[name + ".SR-DETAILS"] = SR_details.str();
     root[name + ".SP-SIGNAL"] = validSP;
     root[name + ".SP-TOTAL"] = totalSP;
     root[name + ".SP-PPM"] = SP_PPM;
+    root[name + ".SP-DETAILS"] = SP_details.str();
 
     if (opt::samplekey != "") {
         ofstream ofs(opt::samplekey + ".json", ofstream::out);
