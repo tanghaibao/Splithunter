@@ -14,25 +14,38 @@ static const char *USAGE_MESSAGE =
 "Contact: Haibao Tang\n"
 "Usage: Splithunter bamfile [options]\n\n"
 "Commands:\n"
+"  --help,      -h          Display help\n"
 "  --verbose,   -v          Set verbose output\n"
 "  --samplekey, -s <string> SampleKey, output will be written `samplekey.json`\n"
+"  --bedfile,   -b <string> BedFile that contains the loci to go through\n"
+"  --locus,     -l <string> Specific locus to compute, one of TRA/TRB/TRG/IGH/IGK/IGL\n"
 "\nReport bugs to <htang@humanlongevity.com>\n\n";
 static const char *DEBUG = "[ DEBUG ] ";
+
+// Global settings
+static const bool hardclip = false;
+static const float secondary_cutoff = .9;
+static const int secondary_cap = 0;
+static const int PAD = 30;       // threshold for a significant match
+static const int INDEL = 10000;  // threshold for left-right distance
+static const int MINENT = 50;    // threshold for sequence complexity
 
 namespace opt {
     static bool verbose = false;
     static string bam;
     static string bed = "";
+    static string locus = "";
     static string path = "";
     static string samplekey = "";
 }
 
-static const char* shortopts = "hvb:s:";
+static const char* shortopts = "hvb:l:s:";
 static const struct option longopts[] = {
-    { "help",       no_argument,       NULL, 'h' },
-    { "verbose",    no_argument,       NULL, 'v' },
-    { "bedfile",    required_argument, NULL, 'b' },
-    { "samplekey",  required_argument, NULL, 's' },
+    { "help",        no_argument,       NULL, 'h' },
+    { "verbose",     no_argument,       NULL, 'v' },
+    { "bedfile",     required_argument, NULL, 'b' },
+    { "locus",       required_argument, NULL, 'l' },
+    { "samplekey",   required_argument, NULL, 's' },
     { NULL, 0, NULL, 0 }
 };
 
@@ -85,14 +98,6 @@ int run(BED& bedEntry, Json::Value& root) {
     br.SetRegion(gr);
 
     BamRecord r;
-    // Global settings
-    const bool hardclip = false;
-    const float secondary_cutoff = .9;
-    const int secondary_cap = 0;
-    const int PAD = 30;       // threshold for a significant match
-    const int INDEL = 10000;  // threshold for left-right distance
-    const int MINENT = 50;    // threshold for sequence complexity
-
     int totalSR = 0, validSR = 0;
     string leftPart, rightPart;
     // Store the pairs in a cache
@@ -164,7 +169,7 @@ int run(BED& bedEntry, Json::Value& root) {
 
         // SR Condition 2: Total score
         int32_t totalScore = leftScore + rightScore;
-        if (totalScore < readLength - PAD / 2) continue;
+        if (totalScore < readLength - PAD) continue;
 
         // SR Condition 3: Distinct region
         int32_t dist = leftAlign.DistanceBetweenStarts(rightAlign);
@@ -263,8 +268,10 @@ int main(int argc, char** argv) {
     for (char c; (c = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1;) {
         istringstream arg(optarg != NULL ? optarg : "");
         switch (c) {
+            case 'h': help = true; break;
             case 'v': opt::verbose = true; break;
             case 'b': arg >> opt::bed; break;
+            case 'l': arg >> opt::locus; break;
             case 's': arg >> opt::samplekey; break;
             default: die = true;
         }
@@ -293,6 +300,8 @@ int main(int argc, char** argv) {
     BedFile bed(opt::bed);
     bed.Open();
     while(bed.GetNextBed(bedEntry)) {
+        if ((opt::locus != "") && (bedEntry.name != opt::locus))
+            continue;
         run(bedEntry, root);
     }
 

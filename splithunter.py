@@ -27,15 +27,20 @@ logger = logging.getLogger(__name__)
 datadir = get_abs_path(op.join(op.dirname(__file__), 'data'))
 datafile = lambda x: op.join(datadir, x)
 HLI_BAMS = datafile("HLI_bams.csv.gz")
+LOCI = "TRA|TRB|TRG|IGH|IGK|IGL"
 
 
 def set_argparse():
     p = DefaultHelpParser(description=__doc__, prog=__file__,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    p.add_argument('infile', nargs='?', help="Input path (BAM, list of BAMs, or csv format)")
-    p.add_argument('--cpus', help='Number of CPUs to use', type=int, default=cpu_count())
+    p.add_argument('infile', nargs='?',
+                    help="Input path (BAM, list of BAMs, or csv format)")
+    p.add_argument('--locus', default="", choices=LOCI.split("|"),
+                    help="Compute only one locus, must be one of {}".format(LOCI))
+    p.add_argument('--cpus',
+                    help='Number of CPUs to use', type=int, default=cpu_count())
     p.add_argument('--log', choices=("INFO", "DEBUG"), default="INFO",
-                        help='Print debug logs, DEBUG=verbose')
+                    help='Print debug logs, DEBUG=verbose')
     set_aws_opts(p)
     return p
 
@@ -85,7 +90,7 @@ def run(arg):
     :param bam: path to bam file
     :return: dict of calls
     '''
-    samplekey, bam, log = arg
+    samplekey, bam, args = arg
     exec_path = op.join(op.abspath(op.dirname(__file__)), "Splithunter")
 
     cwd = os.getcwd()
@@ -97,6 +102,8 @@ def run(arg):
         return res
 
     cmd = "{} {} -s {}".format(exec_path, bam, samplekey)
+    if args.locus:
+        cmd += " -l {}".format(args.locus)
     try:
         print >> sys.stderr, cmd
         os.system(cmd)
@@ -210,7 +217,7 @@ if __name__ == '__main__':
         jsonfile = ".".join((samplekey, "json"))
         if op.exists(jsonfile):
             continue
-        task_args.append((samplekey, bam, args.log))
+        task_args.append((samplekey, bam, args))
 
     cpus = min(args.cpus, len(task_args))
     if cpus == 0:
