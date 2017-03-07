@@ -15,13 +15,13 @@ from multiprocessing import Pool, cpu_count
 from pysrc.utils import DefaultHelpParser
 
 
-def df_to_tsv(df, tsvfile):
+def df_to_tsv(df, tsvfile, index=False):
     dd = ["samplekey"]
     columns = dd + sorted([x for x in df.columns if (x not in dd)])
 
     df = df.reindex_axis(columns, axis='columns')
     df.sort_values("samplekey")
-    df.to_csv(tsvfile, sep='\t', index=False)
+    df.to_csv(tsvfile, sep='\t', index=index)
     print >> sys.stderr, "TSV output written to `{}` (# samples={})"\
                 .format(tsvfile, df.shape[0])
 
@@ -44,6 +44,69 @@ def json_to_df(jsonfiles, tsvfile, cpus):
     for res in results:
         df = df.append(res, ignore_index=True)
     return df
+
+
+def get_midpoint(s):
+    '''
+    >>> get_midpoint("1:58,460-58,557(+)")
+    (58508, '+')
+    '''
+    chr, startendstrand = s.split(':')
+    startend, strand = startendstrand.split('(')
+    start, end = startend.replace(',', '').split('-')
+    start, end = int(start), int(end)
+    strand = strand.split(')')[0]
+    return (start + end) / 2, strand
+
+
+def parse_alignments(s):
+    '''Convert strings like `1:58,460-58,557(+)|1:135,876-135,929(-);` to tuples for plotting.
+
+    >>> parse_alignments("1:58,460-58,557(+)|1:135,876-135,929(-);1:58,460-58,557(+)|1:135,876-135,929(-);")
+    [(58508, 135902, '+-'), (58508, 135902, '+-')]
+    '''
+    res = []
+    for event in s.split(';'):
+        if event.strip() == "":
+            continue
+        left, right = event.split("|")
+        leftmid, leftstrand = get_midpoint(left)
+        rightmid, rightstrand = get_midpoint(right)
+        res.append((leftmid, rightmid, leftstrand + rightstrand))
+    return res
+
+
+def slicing_filter(details, orientation, offset=0, boundary=800000):
+    # Test slicing rule >800Kb
+    sliced = [x for x in details if ((x[0] - offset) > boundary) \
+                                 or ((x[1] - offset) > boundary)]
+    sliced = [x for x in sliced if x[-1] in orientation]
+    if offset == 0: # SR
+        sliced = [x for x in sliced if x[0] > x[1]]
+
+    return len(sliced)
+
+
+def filter_TRA(df, TRA_start=21621904):
+    data = {}
+    for i, row in df.iterrows():
+        samplekey = row["samplekey"]
+        SP, SR = row["TRA.SP-DETAILS"], row["TRA.SR-DETAILS"]
+        SP_total, SR_total = row["TRA.SP-TOTAL"], row["TRA.SR-TOTAL"]
+        SP_new = SR_new = 0
+        if isinstance(SP, basestring):
+            SP_details = parse_alignments(SP)
+            SP_new = slicing_filter(SP_details, ['-+'], offset=TRA_start)
+        if isinstance(SR, basestring):
+            SR_details = parse_alignments(SR)
+            SR_new = slicing_filter(SR_details, ['++'])
+
+        data[samplekey] = [SR_new * 1e6 / SR_total, SP_new * 1e6 / SP_total,
+                           (SR_new + SP_new * 2) * 1e6 / (SR_total + SP_total * 2)]
+
+    xf = pd.DataFrame.from_dict(data, orient="index")
+    xf.columns = ["TRA.SR-PPM", "TRA.SP-PPM", "TRA.PPM"]
+    return xf
 
 
 def main():
@@ -73,6 +136,16 @@ def main():
     if df.empty:
         print >> sys.stderr, "Dataframe empty - check input files"
         sys.exit(1)
+
+    # Filter TRA locus for age prediction
+    print >> sys.stderr, "Filtering TRA locus for age prediction"
+    xf = filter_TRA(df)
+    tsvfile = tsvfile.rsplit(".", 1)[0] + ".TRA.tsv"
+    xf = xf.sort_index()
+    xf.to_csv(tsvfile, sep='\t', index_label="samplekey")
+    print >> sys.stderr, "TSV output written to `{}` (# samples={})"\
+                .format(tsvfile, xf.shape[0])
+
 
 if __name__ == '__main__':
     main()
