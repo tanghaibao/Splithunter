@@ -8,6 +8,7 @@ Compile splithunter calls into a tsv file from a set of JSON files.
 import argparse
 import json
 import sys
+import os.path as op
 import pandas as pd
 
 from multiprocessing import Pool, cpu_count
@@ -131,7 +132,10 @@ def main():
         df = json_to_df(files, tsvfile, cpus)
         df_to_tsv(df, tsvfile)
     else:
-        df = pd.read_csv(tsvfile, sep="\t")
+        if op.exists(tsvfile):
+            df = pd.read_csv(tsvfile, sep="\t")
+        else:
+            sys.exit(not p.print_help())
 
     if df.empty:
         print >> sys.stderr, "Dataframe empty - check input files"
