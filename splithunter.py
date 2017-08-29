@@ -85,6 +85,14 @@ def check_bam(bam):
     return bam
 
 
+def cleanup(cwd, samplekey):
+    """
+    Change back to the parent folder and remove the samplekey folder after done
+    """
+    os.chdir(cwd)
+    shutil.rmtree(samplekey)
+
+
 def run(arg):
     '''
     :param bam: path to bam file
@@ -99,6 +107,7 @@ def run(arg):
 
     res = { 'samplekey': samplekey, 'bam': bam }
     if check_bam(bam) is None:
+        cleanup(cwd, samplekey)
         return res
 
     cmd = "{} {} -s {}".format(exec_path, bam, samplekey)
@@ -116,8 +125,7 @@ def run(arg):
     except Exception as e:
         logger.error("Exception on `{}` {} ({})".format(bam, samplekey, e))
 
-    os.chdir(cwd)
-    shutil.rmtree(samplekey)
+    cleanup(cwd, samplekey)
     return res
 
 
