@@ -24,11 +24,11 @@ from multiprocessing import Pool, cpu_count
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
-datadir = get_abs_path(op.join(op.dirname(__file__), 'data'))
+datadir = get_abs_path(op.join(op.dirname(__file__) + "/..", 'data'))
 datafile = lambda x: op.join(datadir, x)
 HLI_BAMS = datafile("HLI_bams.csv.gz")
 LOCI = "TRA|TRB|TRG|IGH|IGK|IGL"
-exec_path = which("Splithunter")
+exec_path = which("Splithunter", paths=[op.dirname(__file__) + "/.."])
 
 
 def set_argparse():
