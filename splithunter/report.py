@@ -143,9 +143,7 @@ def main(args):
 
     # Filter TRA locus for age prediction
     print >> sys.stderr, "Filtering TRA locus for age prediction"
-    print df
     xf = filter_TRA(df)
-    print xf
     tsvfile = tsvfile.rsplit(".", 1)[0] + ".TRA.tsv"
     xf = xf.sort_index()
     xf.to_csv(tsvfile, sep='\t', index_label="SampleKey")
