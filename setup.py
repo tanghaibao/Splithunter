@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-from setuptools import Extension, setup
+import os.path as op
+
+from setuptools import setup
 from setup_helper import SetupHelper
 
 
-name = "tredparse"
+name = "splithunter"
 classifiers = [
     'Development Status :: 4 - Beta',
     'Intended Audience :: Science/Research',
@@ -17,7 +19,7 @@ with open('requirements.txt') as f:
     required = f.read().splitlines()
 
 # Use the helper
-h = SetupHelper(initfile="tredparse/__init__.py", readmefile="README.md")
+h = SetupHelper(initfile=op.join(name, "__init__.py"), readmefile="README.md")
 h.check_version(name, majorv=2, minorv=7)
 
 setup(
@@ -27,16 +29,14 @@ setup(
       author_email=h.email,
       license=h.license,
       long_description=h.long_description,
-      packages=[name, "ssw"],
-      package_dir={'ssw': 'src', 'tredparse': 'tredparse'},
+      packages=[name],
+      package_dir={name : name},
       include_package_data=True,
       package_data={name: ["data/*.*"]},
-      ext_modules=[Extension("libssw", **libssw_ext)],
-      py_modules=["ssw.__init__", "ssw.ssw_wrap"],
-      scripts=["tred.py", "tredreport.py", "tredplot.py"],
+      scripts=["splithunter.py", "splithunter_report.py"],
       classifiers=classifiers,
       zip_safe=False,
-      url='https://github.com/tanghaibao/tredparse',
-      description='Short Tandem Repeat (STR) genotyper',
+      url='https://github.com/tanghaibao/splithunter',
+      description='Split read hunter',
       install_requires=required + ['pysam']
 )
