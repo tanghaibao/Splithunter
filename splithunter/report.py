@@ -102,8 +102,11 @@ def filter_TRA(df, TRA_start=21621904):
             SR_details = parse_alignments(SR)
             SR_new = slicing_filter(SR_details, ['++'])
 
-        data[samplekey] = [SR_new * 1e6 / SR_total, SP_new * 1e6 / SP_total,
-                           (SR_new + SP_new * 2) * 1e6 / (SR_total + SP_total * 2)]
+        SR_PPM = SR_new * 1e6 / SR_total if SR_total else 0
+        SP_PPM = SP_new * 1e6 / SP_total if SP_total else 0
+        PPM = (SR_new + SP_new * 2) * 1e6 / (SR_total + SP_total * 2) \
+                    if (SR_total + SP_total) else 0
+        data[samplekey] = [SR_PPM, SP_PPM, PPM]
 
     xf = pd.DataFrame.from_dict(data, orient="index")
     xf.columns = ["TRA.SR-PPM", "TRA.SP-PPM", "TRA.PPM"]
