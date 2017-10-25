@@ -20,8 +20,6 @@ with open('requirements.txt') as f:
 h = SetupHelper(initfile="tredparse/__init__.py", readmefile="README.md")
 h.check_version(name, majorv=2, minorv=7)
 
-libssw_ext = {"sources": ["src/ssw.c"], "include_dirs": ["src"]}
-
 setup(
       name=name,
       version=h.version,
