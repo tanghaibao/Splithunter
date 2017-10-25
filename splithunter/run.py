@@ -110,6 +110,7 @@ def run(arg):
     os.chdir(samplekey)
 
     res = { 'SampleKey': samplekey, 'bam': bam }
+    failed = True
     if check_bam(bam) is None:
         cleanup(cwd, samplekey)
         return res
@@ -128,12 +129,16 @@ def run(arg):
         fp.close()
     except Exception as e:
         logger.error("Exception on `{}` {} ({})".format(bam, samplekey, e))
+        failed = True
 
     cleanup(cwd, samplekey)
-    return res
+    return None if failed else res
 
 
 def to_json(results):
+    if results is None:
+        return
+
     samplekey = results['SampleKey']
     if not results:
         logger.debug("No calls are found for {} `{}`".format(samplekey, bam))
