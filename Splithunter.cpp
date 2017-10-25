@@ -297,7 +297,7 @@ int main(int argc, char** argv) {
     // JSON result object
     Json::Value root;
     root["bam"] = opt::bam;
-    root["samplekey"] = opt::samplekey;
+    root["SampleKey"] = opt::samplekey;
 
     cerr << "[ BED input ] " << opt::bed << endl;
     cerr << "[ BAM input ] " << opt::bam << endl;

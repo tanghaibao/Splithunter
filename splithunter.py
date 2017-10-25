@@ -105,7 +105,7 @@ def run(arg):
     mkdir(samplekey)
     os.chdir(samplekey)
 
-    res = { 'samplekey': samplekey, 'bam': bam }
+    res = { 'SampleKey': samplekey, 'bam': bam }
     if check_bam(bam) is None:
         cleanup(cwd, samplekey)
         return res
@@ -130,7 +130,7 @@ def run(arg):
 
 
 def to_json(results):
-    samplekey = results['samplekey']
+    samplekey = results['SampleKey']
     if not results:
         logger.debug("No calls are found for {} `{}`".format(samplekey, bam))
         return
@@ -194,10 +194,9 @@ def read_csv(csvfile, args):
     return contents
 
 
-
-if __name__ == '__main__':
+def main(args):
     p = set_argparse()
-    args = p.parse_args()
+    args = p.parse_args(args)
 
     loglevel = getattr(logging, args.log.upper(), "INFO")
     logger.setLevel(loglevel)
@@ -230,7 +229,7 @@ if __name__ == '__main__':
     cpus = min(args.cpus, len(task_args))
     if cpus == 0:
         logger.debug("All jobs already completed.")
-        sys.exit(0)
+        return
 
     logger.debug("Starting {} threads for {} jobs.".format(cpus, len(task_args)))
 
@@ -246,3 +245,7 @@ if __name__ == '__main__':
     print >> sys.stderr, "Elapsed time={}"\
             .format(timedelta(seconds=time.time() - start))
     os.chdir(cwd)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

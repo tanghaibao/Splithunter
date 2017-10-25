@@ -17,11 +17,11 @@ from pysrc.utils import DefaultHelpParser
 
 
 def df_to_tsv(df, tsvfile, index=False):
-    dd = ["samplekey"]
+    dd = ["SampleKey"]
     columns = dd + sorted([x for x in df.columns if (x not in dd)])
 
     df = df.reindex_axis(columns, axis='columns')
-    df.sort_values("samplekey")
+    df.sort_values("SampleKey")
     df.to_csv(tsvfile, sep='\t', index=index)
     print >> sys.stderr, "TSV output written to `{}` (# samples={})"\
                 .format(tsvfile, df.shape[0])
@@ -91,7 +91,7 @@ def slicing_filter(details, orientation, offset=0, boundary=800000):
 def filter_TRA(df, TRA_start=21621904):
     data = {}
     for i, row in df.iterrows():
-        samplekey = row["samplekey"]
+        samplekey = row["SampleKey"]
         SP, SR = row["TRA.SP-DETAILS"], row["TRA.SR-DETAILS"]
         SP_total, SR_total = row["TRA.SP-TOTAL"], row["TRA.SR-TOTAL"]
         SP_new = SR_new = 0
@@ -110,7 +110,7 @@ def filter_TRA(df, TRA_start=21621904):
     return xf
 
 
-def main():
+def main(args):
     p = DefaultHelpParser(description=__doc__, prog=__file__,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument("files", nargs="*")
@@ -118,7 +118,7 @@ def main():
                    help="Path to the tsv file")
     p.add_argument('--cpus', default=cpu_count(),
                    help='Number of threads')
-    args = p.parse_args()
+    args = p.parse_args(args)
 
     files = args.files
     tsvfile = args.tsv
@@ -152,4 +152,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

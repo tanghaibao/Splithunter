@@ -24,7 +24,7 @@ Identify split reads and read pairs in a particular region.
 - Run batch jobs in ``HLI_bams.csv``:
 
     ```bash
-    python splithunter.py HLI_bams.csv --workdir hli
+    python splithunter.py HLI_bams.csv --workdir hli --locus TRA
     ```
 
 - Collect results into a TSV file:
