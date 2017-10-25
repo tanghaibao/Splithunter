@@ -110,7 +110,7 @@ def run(arg):
     os.chdir(samplekey)
 
     res = { 'SampleKey': samplekey, 'bam': bam }
-    failed = True
+    failed = False
     if check_bam(bam) is None:
         cleanup(cwd, samplekey)
         return res
