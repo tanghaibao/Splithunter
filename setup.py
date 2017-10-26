@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os.path as op
+import subprocess
 
 from setuptools import setup
 from setup_helper import SetupHelper
@@ -17,6 +18,9 @@ classifiers = [
 ]
 with open('requirements.txt') as f:
     required = f.read().splitlines()
+
+# Install Splithunter binary
+subprocess.call("cd src && make -j 8 && cd ..", shell=True)
 
 # Use the helper
 h = SetupHelper(initfile=op.join(name, "__init__.py"), readmefile="README.md")

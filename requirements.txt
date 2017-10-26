@@ -1,0 +1,5 @@
+pytest
+cython
+matplotlib
+pandas
+scipy

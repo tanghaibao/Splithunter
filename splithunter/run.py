@@ -28,7 +28,7 @@ datadir = get_abs_path(op.join(op.dirname(__file__) + "/..", 'data'))
 datafile = lambda x: op.join(datadir, x)
 HLI_BAMS = datafile("HLI_bams.csv.gz")
 LOCI = "TRA|TRB|TRG|IGH|IGK|IGL"
-exec_path = which("Splithunter", paths=[op.dirname(__file__) + "/.."])
+exec_path = which("Splithunter", paths=[op.dirname(__file__) + "/../src"])
 
 
 def set_argparse():
@@ -140,6 +140,7 @@ def to_json(results):
         return
 
     samplekey = results['SampleKey']
+    bam = results['bam']
     if not results:
         logger.debug("No calls are found for {} `{}`".format(samplekey, bam))
         return
