@@ -1,5 +1,7 @@
 # Split read hunter
 
+[![Travis-CI](https://travis-ci.org/tanghaibao/Splithunter.svg?branch=master)](https://travis-ci.org/tanghaibao/Splithunter)
+
 |||
 |---|---|
 | Author | Haibao Tang ([tanghaibao](http://github.com/tanghaibao)) |
@@ -14,24 +16,24 @@ Identify split reads and read pairs in a particular region.
 
 - Checkout a copy of Splithunter and install:
 
-  ```bash
-  git clone --recursive https://github.com/tanghaibao/splithunter
-  make
-  ```
+```bash
+git clone --recursive https://github.com/tanghaibao/splithunter
+cd src && make && cd ..
+```
 
 ## Usage
 
 - Run batch jobs in ``HLI_bams.csv``:
 
-    ```bash
-    python splithunter.py HLI_bams.csv --workdir hli --locus TRA
-    ```
+```bash
+python splithunter.py HLI_bams.csv --workdir hli --locus TRA
+```
 
 - Collect results into a TSV file:
 
-    ```bash
-    python splithunter_report.py hli/*.json --tsv hli.splithunter.tsv
-    ```
+```bash
+python splithunter_report.py hli/*.json --tsv hli.splithunter.tsv
+```
 
 ## Build custom database
 
@@ -41,6 +43,6 @@ the reference genome (e.g. ``hg38.upper.fa``).
 
 - You can build your custom BWA indices using:
 
-    ```bash
-    BuildDB data/TR_IG.bed -r ~/projects/ref/hg38.upper.fa
-    ```
+```bash
+BuildDB src/data/TR_IG.bed -r ~/projects/ref/hg38.upper.fa
+```

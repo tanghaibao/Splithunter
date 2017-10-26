@@ -24,5 +24,6 @@ RUN bash /install.sh
 RUN pip install pysam==0.9.1
 
 # Install tredparse
-RUN pip install git+git://github.com/humanlongevity/tredparse.git
-WORKDIR /
+RUN git clone --recursive https://github.com/tanghaibao/Splithunter.git
+WORKDIR Splithunter
+RUN python setup.py install
