@@ -42,5 +42,5 @@ setup(
       zip_safe=False,
       url='https://github.com/tanghaibao/splithunter',
       description='Split read hunter',
-      install_requires=required + ['pysam']
+      install_requires=required
 )
