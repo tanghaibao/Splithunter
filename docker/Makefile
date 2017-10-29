@@ -10,6 +10,7 @@ all: build push
 test: build testrun
 
 build:
+	docker system prune -f
 	docker build -f $(BASENAME).dockerfile -t $(NS)/$(BASENAME):$(TAG) ./
 push:
 	docker push $(NS)/$(BASENAME):$(TAG)

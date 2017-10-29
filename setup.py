@@ -37,7 +37,7 @@ setup(
       package_dir={name : name},
       include_package_data=True,
       package_data={name: ["data/*.*"]},
-      scripts=["splithunter.py", "splithunter_report.py"],
+      scripts=["splithunter_run.py", "splithunter_report.py"],
       classifiers=classifiers,
       zip_safe=False,
       url='https://github.com/tanghaibao/splithunter',

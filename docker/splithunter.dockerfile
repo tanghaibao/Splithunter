@@ -20,10 +20,7 @@ RUN pip install scipy
 ADD install.sh /
 RUN bash /install.sh
 
-# Must install pysam after HTSLIB
-RUN pip install pysam==0.9.1
-
-# Install tredparse
-RUN git clone --recursive https://github.com/tanghaibao/Splithunter.git
-WORKDIR Splithunter
+# Install splithunter, run `update_package.sh` first
+ADD Splithunter /Splithunter
+WORKDIR /Splithunter
 RUN python setup.py install

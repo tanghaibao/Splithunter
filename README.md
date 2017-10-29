@@ -26,7 +26,7 @@ cd src && make && cd ..
 - Run batch jobs in ``HLI_bams.csv``:
 
 ```bash
-python splithunter.py HLI_bams.csv --workdir hli --locus TRA
+python splithunter_run.py HLI_bams.csv --workdir hli --locus TRA
 ```
 
 - Collect results into a TSV file:
