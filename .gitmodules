@@ -1,3 +1,3 @@
 [submodule "src/SeqLib"]
 	path = src/SeqLib
-	url = git@github.com:tanghaibao/SeqLib.git
+	url = https://github.com/tanghaibao/SeqLib.git
