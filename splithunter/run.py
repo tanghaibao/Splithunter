@@ -2,8 +2,9 @@
 # -*- coding: UTF-8 -*-
 
 """
-HLI sjTREC caller: parse the target regions from the input BAM file, extract
-split reads and split read pairs to test whether they are associated with aging.
+Splithunter: parse target V(D)J regions from a BAM file, detect split reads
+and split read pairs, and optionally compute a TcellExTRECT-style coverage
+ratio.  Core heavy-lifting runs in Rust via ``splithunter._core``.
 """
 
 import argparse
@@ -11,8 +12,6 @@ import json
 import logging
 import os
 import os.path as op
-import shutil
-import subprocess
 import sys
 import time
 
@@ -21,42 +20,56 @@ from multiprocessing import Pool, cpu_count
 
 import pandas as pd
 
-from .utils import DefaultHelpParser, get_abs_path, mkdir, which
+from . import _core
+from .loci import (
+    HG38_LOCI,
+    HG38_LOCI_BY_NAME,
+    HG38_TCELL_SEGMENTS,
+    pick_contig,
+)
+from .utils import DefaultHelpParser, get_abs_path, mkdir
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
 PACKAGE_ROOT = op.dirname(op.abspath(__file__))
-REPO_ROOT = op.dirname(PACKAGE_ROOT)
-SRC_DIR = op.join(REPO_ROOT, "src")
-DATA_DIR = get_abs_path(op.join(SRC_DIR, "data"))
+DATA_DIR = get_abs_path(op.join(PACKAGE_ROOT, "data"))
 HLI_BAMS = op.join(DATA_DIR, "HLI_bams.csv.gz")
-LOCI = ("TRA", "TRB", "TRG", "IGH", "IGK", "IGL")
-
-exec_path = which("Splithunter", paths=[SRC_DIR])
+LOCI = tuple(l.name for l in HG38_LOCI)
 
 
 def set_argparse():
     p = DefaultHelpParser(
         description=__doc__,
-        prog=__file__,
+        prog="splithunter_run",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument('infile', nargs='?',
                    help="Input path (BAM, list of BAMs, or csv format)")
     p.add_argument('--locus', default="", choices=LOCI,
-                   help="Compute only one locus")
+                   help="Compute only one locus (default: all)")
     p.add_argument('--cpus',
                    help='Number of CPUs to use', type=int, default=cpu_count())
     p.add_argument('--log', choices=("INFO", "DEBUG"), default="INFO",
                    help='Print debug logs, DEBUG=verbose')
+    p.add_argument('--tcell-fraction', action='store_true',
+                   help='Also compute TcellExTRECT-style coverage fraction')
+    p.add_argument('--pad', type=int, default=30,
+                   help='Significant match / clip padding')
+    p.add_argument('--indel', type=int, default=10_000,
+                   help='Minimum split distance (bp)')
+    p.add_argument('--min-entropy', type=float, default=50.0,
+                   help='Minimum trinucleotide entropy')
+    p.add_argument('--reference', required=True,
+                   help='Indexed FASTA reference (.fai alongside) — used to '
+                        'build a per-locus in-memory BWA-MEM index for '
+                        're-aligning soft-clipped reads')
     set_aws_opts(p)
     return p
 
 
 def set_aws_opts(p):
     group = p.add_argument_group("AWS and Docker options")
-    # https://github.com/hlids/infrastructure/wiki/Docker-calling-convention
     group.add_argument("--sample_id", help="Sample ID")
     group.add_argument("--workflow_execution_id", help="Workflow execution ID")
     group.add_argument("--input_bam_path", help="Input s3 path, override infile")
@@ -65,88 +78,86 @@ def set_aws_opts(p):
 
 
 def bam_path(bam):
-    """
-    Return network URLs untouched; resolve local paths to absolute.
-    """
+    """Return network URLs untouched; resolve local paths to absolute."""
     if bam.startswith(("s3://", "http://", "https://", "ftp://")):
         return bam
     return op.abspath(bam)
 
 
-def check_bam(bam):
-    bbam = op.basename(bam)
-    baifile = bbam + ".bai"
-    altbaifile = bbam.rsplit(".", 1)[0] + ".bai"
-
-    for bai in (baifile, altbaifile):
-        if op.exists(bai):
-            logger.debug("Remove index `{}`".format(bai))
-            os.remove(bai)
-
-    logger.debug("Working on `{}`".format(bam))
-    return bam
+def _bam_contigs(path):
+    import pysam
+    with pysam.AlignmentFile(path) as bf:
+        return set(bf.references)
 
 
-def cleanup(cwd, samplekey):
-    os.chdir(cwd)
-    shutil.rmtree(samplekey, ignore_errors=True)
+def analyze_bam(samplekey, bam, args, loci):
+    """Run the Rust core over each requested locus and return a result dict."""
+    result = {"SampleKey": samplekey, "bam": bam}
+    try:
+        contigs = _bam_contigs(bam)
+    except Exception as e:
+        logger.error("Cannot open BAM %s: %s", bam, e)
+        return None
+
+    for locus in loci:
+        try:
+            chrom = pick_contig(locus, contigs)
+        except KeyError as e:
+            logger.warning("%s: %s", samplekey, e)
+            continue
+        logger.debug("Analyzing %s @ %s:%d-%d", locus.name, chrom, locus.start, locus.end)
+        try:
+            locus_result = _core.analyze_locus(
+                bam, locus.name, chrom, locus.start, locus.end,
+                args.reference,
+                args.pad, args.indel, args.min_entropy,
+            )
+        except Exception as e:
+            logger.error("%s %s failed: %s", samplekey, locus.name, e)
+            return None
+        result.update(locus_result)
+
+        if args.tcell_fraction and locus.name in HG38_TCELL_SEGMENTS:
+            seg = HG38_TCELL_SEGMENTS[locus.name]._replace(chrom=chrom)
+            try:
+                tc = _core.tcell_fraction(
+                    bam, seg.chrom,
+                    seg.focal[0], seg.focal[1],
+                    seg.left_baseline[0], seg.left_baseline[1],
+                    seg.right_baseline[0], seg.right_baseline[1],
+                    1, 1,
+                )
+                for k, v in dict(tc).items():
+                    result[f"{locus.name}.TCELL-{k}"] = v
+            except Exception as e:
+                logger.warning("%s %s fraction failed: %s", samplekey, locus.name, e)
+
+    return result
 
 
 def run(arg):
-    """
-    :param arg: (samplekey, bam, args)
-    :return: dict of calls or None on failure
-    """
     samplekey, bam, args = arg
-    if exec_path is None or not op.exists(exec_path):
-        logger.error("Splithunter binary not found. Please check or recompile.")
-        sys.exit(1)
-
-    cwd = os.getcwd()
-    mkdir(samplekey)
-    os.chdir(samplekey)
-
-    res = {'SampleKey': samplekey, 'bam': bam}
-    if check_bam(bam) is None:
-        cleanup(cwd, samplekey)
-        return res
-
-    cmd = [exec_path, bam, "-s", samplekey]
+    loci = HG38_LOCI
     if args.locus:
-        cmd += ["-l", args.locus]
-    try:
-        print(" ".join(cmd), file=sys.stderr)
-        subprocess.run(cmd, check=True)
-        jsonfile = "{}.json".format(samplekey)
-        with open(jsonfile) as fp:
-            res = json.load(fp)
-    except (subprocess.CalledProcessError, OSError, ValueError) as e:
-        logger.error("Exception on `{}` {} ({})".format(bam, samplekey, e))
-        cleanup(cwd, samplekey)
-        return None
-
-    cleanup(cwd, samplekey)
-    return res
+        loci = [HG38_LOCI_BY_NAME[args.locus]]
+    return analyze_bam(samplekey, bam, args, loci)
 
 
 def to_json(results):
     if not results:
         return
-
     samplekey = results['SampleKey']
     bam = results['bam']
-    logger.debug("Writing JSON for {} `{}`".format(samplekey, bam))
-
+    logger.debug("Writing JSON for %s `%s`", samplekey, bam)
     jsonfile = ".".join((samplekey, "json"))
     with open(jsonfile, "w") as fw:
-        json.dump(results, fw, sort_keys=True, indent=4, separators=(',', ': '))
+        json.dump(results, fw, sort_keys=True, indent=4,
+                  separators=(',', ': '), default=float)
         fw.write("\n")
 
 
 def get_HLI_bam(samplekey):
-    """
-    From @176449128, retrieve the S3 path of the BAM
-    """
+    """From @176449128, retrieve the S3 path of the BAM."""
     df = pd.read_csv(HLI_BAMS, index_col=0, dtype=str, header=None,
                      names=["SampleKey", "BAM"])
     return df.loc[samplekey]["BAM"]
@@ -200,12 +211,11 @@ def main(args=None):
 
     loglevel = getattr(logging, args.log.upper(), logging.INFO)
     logger.setLevel(loglevel)
-    logger.debug('Commandline Arguments:{}'.format(vars(args)))
+    logger.debug("Commandline Arguments: %s", vars(args))
 
     start = time.time()
     workdir = args.workdir
     cwd = os.getcwd()
-
     if workdir != cwd:
         mkdir(workdir, logger=logger)
 
@@ -214,11 +224,10 @@ def main(args=None):
         sys.exit(not p.print_help())
 
     samples = read_csv(infile, args)
-    logger.debug("Total samples: {}".format(len(samples)))
+    logger.debug("Total samples: %d", len(samples))
 
     task_args = []
     os.chdir(workdir)
-
     for samplekey, bam in samples:
         jsonfile = ".".join((samplekey, "json"))
         if op.exists(jsonfile):
@@ -229,8 +238,7 @@ def main(args=None):
     if cpus == 0:
         logger.debug("All jobs already completed.")
     else:
-        logger.debug("Starting {} threads for {} jobs.".format(cpus, len(task_args)))
-
+        logger.debug("Starting %d threads for %d jobs.", cpus, len(task_args))
         if cpus == 1:
             for ta in task_args:
                 to_json(run(ta))
@@ -239,7 +247,7 @@ def main(args=None):
                 for results in pool.imap(run, task_args):
                     to_json(results)
 
-    print("Elapsed time={}".format(timedelta(seconds=time.time() - start)),
+    print(f"Elapsed time={timedelta(seconds=time.time() - start)}",
           file=sys.stderr)
     os.chdir(cwd)
 

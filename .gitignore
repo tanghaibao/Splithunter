@@ -10,20 +10,23 @@ dist/
 .coverage
 .tox/
 
-# C++ build artifacts
-src/*.o
-src/Splithunter
-src/BuildDB
-src/bedFile/*.o
-src/bedFile/*.a
-src/SeqLib/bin/
-
 # Workdirs from splithunter runs
 work/
 *.splithunter.tsv
+
+# Rust / maturin build output
+target/
+rust/target/
+*.so
+*.dylib
+*.pyd
+Cargo.lock
 
 # Editor / OS
 .DS_Store
 .vscode/
 .idea/
 *.swp
+.venv/
+.omc/
+.claude/

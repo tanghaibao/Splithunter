@@ -1,0 +1,19 @@
+[package]
+name = "splithunter-core"
+version = "0.9.0"
+edition = "2021"
+publish = false
+description = "Rust core for Splithunter: split-read/pair detection and TcellExTRECT-style coverage log-ratio analysis."
+
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py39"] }
+rust-htslib = { version = "0.47", default-features = false, features = ["bzip2", "lzma"] }
+tempfile = "3"
+libc = "0.2"
+
+[build-dependencies]
+cc = { version = "1", features = ["parallel"] }
