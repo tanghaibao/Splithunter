@@ -36,7 +36,21 @@ tr.na td { color: #aaa; background: #fafafa; }
                border-radius: 2px; vertical-align: middle; margin-right: 4px; }
 code { background: #f4f6f8; padding: .1rem .35rem; border-radius: 3px;
        font-size: 0.88em; }
-</style></head><body><h1>Splithunter report</h1><p>V(D)J split-read / split-pair detection plus TcellExTRECT-style coverage analysis. Engine: <code>splithunter._core</code> (Rust + BWA-MEM FFI).</p><div class="meta"><dl><dt>Generated</dt><dd>2026-04-16 19:30:44</dd><br><dt>Samples</dt><dd>1</dd></dl></div>
+</style></head><body><h1>Splithunter report</h1><p>V(D)J split-read / split-pair detection plus TcellExTRECT-style coverage analysis. Engine: <code>splithunter._core</code> (Rust + BWA-MEM FFI).</p><div class="meta"><dl><dt>Generated</dt><dd>2026-04-16 19:30:44</dd><br><dt>Samples</dt><dd>1</dd><br><dt>Coverage mode</dt><dd>whole-window (legacy; <code>--no-default-targets</code>)</dd></dl></div>
+<p style="background:#fffbe6;border-left:4px solid #f1c40f;padding:.6rem .9rem;
+border-radius:0 4px 4px 0;font-size:0.92rem;">
+<strong>Note on WES coverage (added 2026-04-16):</strong> The TcellExTRECT
+table below was computed over the full focal/baseline windows (intron + exon)
+— appropriate for WGS but biased for WES, where off-target zero-depth bases
+inflate the bait-edge population. Splithunter's default for WES BAMs is now
+to intersect coverage with a capture-kit exon BED before taking medians; the
+default for TRA is the upstream-vetted set in
+<code>splithunter/data/tcra_exons_hg38.bed</code> (192 intervals from
+<code>TCRA_exons_hg38.rda</code>). Override with <code>--targets BED</code>
+or opt out (as this report does) with <code>--no-default-targets</code>.
+This NA12878 LCL slice has near-zero exon overlap, so the legacy mode is
+shown to keep the SVG and numbers comparable to prior runs.
+</p>
 <h2 style="border-bottom:2px solid #2c3e50">Sample: NA12878</h2>
 <p>BAM: <code>/Users/bao/code/Splithunter/tests/NA12878.bam</code></p>
 <h2>Locus TRA — chr14:21,621,904-22,752,132</h2>

@@ -72,12 +72,13 @@ pub fn tcell_fraction(
     right_baseline: (i64, i64),
     min_mapq: u8,
     min_cov: u32,
+    exons: &[(i64, i64)],
 ) -> Result<TcellResult, HtslibError> {
     let lo = left_baseline.0.min(focal.0);
     let hi = right_baseline.1.max(focal.1);
     let cov = region_coverage(bam_path, chrom, lo, hi, min_mapq)?;
     Ok(fraction_from_positions(
-        &cov, focal, left_baseline, right_baseline, min_cov,
+        &cov, focal, left_baseline, right_baseline, min_cov, exons,
     ))
 }
 
@@ -90,19 +91,34 @@ pub fn fraction_from_positions(
     left_baseline: (i64, i64),
     right_baseline: (i64, i64),
     min_cov: u32,
+    exons: &[(i64, i64)],
 ) -> TcellResult {
     let in_range = |pos: i64, (s, e): (i64, i64)| pos >= s && pos < e;
+    // If a capture-kit exon list is supplied, restrict coverage to positions
+    // that fall inside any exon interval.  This is required for WES BAMs: off-
+    // target bases are near-zero and bait-edge positions bias median depth
+    // asymmetrically between focal and baseline windows unless both are
+    // clipped to the same captured set.  An empty `exons` slice preserves
+    // legacy whole-window behaviour (appropriate for WGS).
+    let in_exons = |pos: i64| {
+        if exons.is_empty() {
+            return true;
+        }
+        exons.iter().any(|&(s, e)| pos >= s && pos < e)
+    };
 
     let mut baseline: Vec<f64> = cov
         .iter()
         .filter(|(p, d)| {
-            *d >= min_cov && (in_range(*p, left_baseline) || in_range(*p, right_baseline))
+            *d >= min_cov
+                && in_exons(*p)
+                && (in_range(*p, left_baseline) || in_range(*p, right_baseline))
         })
         .map(|(_, d)| *d as f64)
         .collect();
     let mut focal_vals: Vec<f64> = cov
         .iter()
-        .filter(|(p, d)| *d >= min_cov && in_range(*p, focal))
+        .filter(|(p, d)| *d >= min_cov && in_exons(*p) && in_range(*p, focal))
         .map(|(_, d)| *d as f64)
         .collect();
 

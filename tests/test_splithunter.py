@@ -255,3 +255,118 @@ def test_fraction_from_coverage_perfect_hemizygous():
     )
     assert result["log2_ratio"] == pytest.approx(-1.0, abs=1e-9)
     assert result["tcell_fraction"] == pytest.approx(0.5, abs=1e-9)
+
+
+# ---- Exon-restricted (WES capture-aware) coverage -------------------------
+#
+# For WES BAMs the per-position pileup includes off-target bases with depth
+# zero.  With only min_cov filtering, the surviving positions cluster at
+# bait edges and the median is bait-geometry-biased — asymmetrically between
+# focal and baseline.  The fix is to intersect coverage with the capture-kit
+# exon BED before taking medians; the packaged ``tcra_exons_hg38.bed`` is the
+# upstream TcellExTRECT default set.
+
+def test_default_exons_bed_is_packaged():
+    exons = sh_loci.load_exons_bed(sh_loci.DEFAULT_EXONS_BED, "chr14")
+    assert len(exons) == 192
+    tra = sh_loci.HG38_TCELL_SEGMENTS["TRA"]
+    # Every exon should fall inside the TRA full window.
+    for s, e in exons:
+        assert tra.full[0] <= s < e <= tra.full[1]
+
+
+def test_load_exons_bed_handles_chr_prefix_drift(tmp_path):
+    bed = tmp_path / "x.bed"
+    bed.write_text("# comment\n14\t100\t200\n14\t300\t400\nchrX\t0\t10\n")
+    assert sh_loci.load_exons_bed(str(bed), "chr14") == [(100, 200), (300, 400)]
+    assert sh_loci.load_exons_bed(str(bed), "14") == [(100, 200), (300, 400)]
+    assert sh_loci.load_exons_bed(str(bed), "chrY") == []
+
+
+def test_default_exons_for_only_tra():
+    assert sh_loci.default_exons_for("TRA", "chr14") is not None
+    assert sh_loci.default_exons_for("IGH", "chr14") is None
+    assert sh_loci.default_exons_for("TRB", "chr7") is None
+
+
+def test_fraction_from_coverage_with_exons_restricts_positions():
+    from splithunter import _core
+
+    # 1000 positions; depth 40 everywhere EXCEPT outside the exon carve-out,
+    # where we simulate WES off-target by setting depth 0.  Without an exon
+    # list, zero-depth positions are dropped by min_cov=1 — median computes
+    # over the remaining ~120 positions per window (still 40 vs 40).  With an
+    # exon list restricted to a subset, both focal and baseline are clipped
+    # to the same captured set, yielding identical medians.
+    pos = list(range(0, 1000))
+    exon_mask = set(range(50, 150)) | set(range(450, 550)) | set(range(850, 950))
+    dep = [40 if p in exon_mask else 0 for p in pos]
+
+    exons = [(50, 150), (450, 550), (850, 950)]
+    result = _core.fraction_from_coverage(
+        pos, dep,
+        400, 600,           # focal
+        0, 200,              # left baseline
+        800, 1000,           # right baseline
+        1,                   # min_cov
+        exons,
+    )
+    # Only the exon-inside positions count — and they all have depth 40.
+    assert result["focal_positions"] == 100
+    assert result["baseline_positions"] == 200
+    assert result["log2_ratio"] == pytest.approx(0.0, abs=1e-9)
+    assert result["tcell_fraction"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_fraction_from_coverage_empty_exons_equals_legacy():
+    from splithunter import _core
+
+    pos = list(range(0, 1000))
+    dep = [20 if 400 <= p < 600 else 40 for p in pos]
+    legacy = _core.fraction_from_coverage(
+        pos, dep, 400, 600, 0, 200, 800, 1000, 0,
+    )
+    empty = _core.fraction_from_coverage(
+        pos, dep, 400, 600, 0, 200, 800, 1000, 0, [],
+    )
+    assert empty["log2_ratio"] == legacy["log2_ratio"]
+    assert empty["tcell_fraction"] == legacy["tcell_fraction"]
+    assert empty["focal_positions"] == legacy["focal_positions"]
+
+
+def test_fraction_from_coverage_exons_no_overlap_yields_nan():
+    from splithunter import _core
+
+    pos = list(range(0, 1000))
+    dep = [40] * 1000
+    # Exon list that doesn't overlap any focal/baseline window.
+    result = _core.fraction_from_coverage(
+        pos, dep, 400, 600, 0, 200, 800, 1000, 0,
+        [(2000, 2100)],
+    )
+    assert _nan(result["log2_ratio"])
+    assert _nan(result["tcell_fraction"])
+
+
+def test_fraction_from_cov_example_with_exons_preserves_dip():
+    """On the upstream WES cov_example, exon-restricted medians should still
+    reproduce the T-cell dip (baseline > focal, fraction > 0.1)."""
+    from splithunter import _core
+
+    pos, dep = _load_cov_example()
+    segs = _load_seg("hg19")
+    # The cov_example fixture is already WES coverage — treat every position
+    # with non-zero depth as "captured" for this test.  The packaged exon BED
+    # is hg38 and wouldn't line up with hg19 coordinates.
+    exons = [(p, p + 1) for p, d in zip(pos, dep) if d > 0]
+    result = _core.fraction_from_coverage(
+        pos, dep,
+        segs["focal"][0], segs["focal"][1],
+        segs["local1"][0], segs["local1"][1],
+        segs["local2"][0], segs["local2"][1],
+        0,
+        exons,
+    )
+    assert result["baseline_median"] > result["focal_median"]
+    assert result["log2_ratio"] < 0
+    assert 0.1 < result["tcell_fraction"] <= 1.0

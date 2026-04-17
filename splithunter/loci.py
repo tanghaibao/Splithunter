@@ -9,9 +9,17 @@ Two parallel maps are provided:
   baseline windows, following the TcellExTRECT (Bentham et al., Nature 2021)
   parameterisation extended heuristically to the IG loci.  The coordinates
   are 0-based half-open (BED-style).
+
+Exon tracks for WES capture-aware coverage live in ``splithunter/data``.
+``DEFAULT_EXONS_BED`` is the package's default hg38 TCRA exon set, ported
+from McGranahanLab/TcellExTRECT's ``TCRA_exons_hg38.rda``.
 """
 
+import os.path as op
 from collections import namedtuple
+
+DATA_DIR = op.join(op.dirname(op.abspath(__file__)), "data")
+DEFAULT_EXONS_BED = op.join(DATA_DIR, "tcra_exons_hg38.bed")
 
 Locus = namedtuple("Locus", ["name", "chrom", "start", "end"])
 
@@ -100,3 +108,44 @@ def pick_contig(locus, bam_header_contigs):
         f"Locus {locus.name} contig {locus.chrom!r} not found in BAM "
         "(neither with nor without 'chr')"
     )
+
+
+# Which loci get exon-restricted coverage by default.  Only TRA has an
+# upstream-vetted exon track shipped with the package; the IG loci fall back
+# to whole-window coverage until validated sets are added.
+_DEFAULT_EXON_LOCI = {"TRA"}
+
+
+def load_exons_bed(path, chrom):
+    """
+    Parse a BED-like file and return ``[(start, end), ...]`` for rows whose
+    first column matches ``chrom`` (or its chr-prefix variant).  Lines
+    starting with '#', 'track', or 'browser' are skipped.
+    """
+    alt = chrom.removeprefix("chr") if chrom.startswith("chr") else f"chr{chrom}"
+    wanted = {chrom, alt}
+    intervals = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith(("#", "track", "browser")):
+                continue
+            parts = line.split("\t")
+            if len(parts) < 3:
+                parts = line.split()
+            if len(parts) < 3:
+                continue
+            if parts[0] not in wanted:
+                continue
+            intervals.append((int(parts[1]), int(parts[2])))
+    return intervals
+
+
+def default_exons_for(locus_name, chrom):
+    """
+    Return the packaged exon intervals for ``locus_name`` (or ``None`` if no
+    default track is shipped for that locus).
+    """
+    if locus_name not in _DEFAULT_EXON_LOCI:
+        return None
+    return load_exons_bed(DEFAULT_EXONS_BED, chrom)

@@ -83,7 +83,7 @@ fn region_coverage<'py>(
 /// median log2(focal / baseline) coverage ratio and derive a T-cell fraction
 /// estimate (1 − 2^logR, clamped to [0, 1]).
 #[pyfunction]
-#[pyo3(signature = (bam_path, chrom, focal_start, focal_end, left_start, left_end, right_start, right_end, min_mapq=1, min_cov=1))]
+#[pyo3(signature = (bam_path, chrom, focal_start, focal_end, left_start, left_end, right_start, right_end, min_mapq=1, min_cov=1, exons=None))]
 #[allow(clippy::too_many_arguments)]
 fn tcell_fraction<'py>(
     py: Python<'py>,
@@ -97,7 +97,9 @@ fn tcell_fraction<'py>(
     right_end: i64,
     min_mapq: u8,
     min_cov: u32,
+    exons: Option<Vec<(i64, i64)>>,
 ) -> PyResult<Bound<'py, PyDict>> {
+    let exons = exons.unwrap_or_default();
     let result = coverage::tcell_fraction(
         bam_path,
         chrom,
@@ -106,6 +108,7 @@ fn tcell_fraction<'py>(
         (right_start, right_end),
         min_mapq,
         min_cov,
+        &exons,
     )
     .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;
 
@@ -125,7 +128,7 @@ fn tcell_fraction<'py>(
 /// parallel `positions` + `depths` lists.  Matches the R TcellExTRECT signature
 /// where the first argument is a coverage DataFrame.
 #[pyfunction]
-#[pyo3(signature = (positions, depths, focal_start, focal_end, left_start, left_end, right_start, right_end, min_cov=1))]
+#[pyo3(signature = (positions, depths, focal_start, focal_end, left_start, left_end, right_start, right_end, min_cov=1, exons=None))]
 #[allow(clippy::too_many_arguments)]
 fn fraction_from_coverage<'py>(
     py: Python<'py>,
@@ -138,12 +141,14 @@ fn fraction_from_coverage<'py>(
     right_start: i64,
     right_end: i64,
     min_cov: u32,
+    exons: Option<Vec<(i64, i64)>>,
 ) -> PyResult<Bound<'py, PyDict>> {
     if positions.len() != depths.len() {
         return Err(pyo3::exceptions::PyValueError::new_err(
             "positions and depths must have the same length",
         ));
     }
+    let exons = exons.unwrap_or_default();
     let cov: Vec<(i64, u32)> = positions.into_iter().zip(depths.into_iter()).collect();
     let result = coverage::fraction_from_positions(
         &cov,
@@ -151,6 +156,7 @@ fn fraction_from_coverage<'py>(
         (left_start, left_end),
         (right_start, right_end),
         min_cov,
+        &exons,
     );
     let dict = PyDict::new_bound(py);
     dict.set_item("baseline_median", result.baseline_median)?;

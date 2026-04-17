@@ -45,6 +45,19 @@ code { background: #f4f6f8; padding: .1rem .35rem; border-radius: 3px;
 sample with a textbook ~50% T-cell infiltrate, recomputed here from the
 splithunter Rust core (<code>splithunter._core.fraction_from_coverage</code>).</p>
 
+<p style="background:#fffbe6;border-left:4px solid #f1c40f;padding:.6rem .9rem;
+border-radius:0 4px 4px 0;font-size:0.92rem;">
+<strong>Note on WES coverage (added 2026-04-16):</strong>
+The <code>cov_example</code> CSV ships only positions with non-zero depth, so
+it is implicitly exon-restricted; the numbers below are unchanged whether or
+not an explicit exon BED is supplied. For a raw BAM, however, splithunter
+now intersects the per-position pileup with a capture-kit exon list before
+taking medians — the default for TRA is the upstream-vetted set in
+<code>splithunter/data/tcra_exons_hg38.bed</code> (192 intervals from
+<code>TCRA_exons_hg38.rda</code>). See <code>--targets</code> /
+<code>--no-default-targets</code> in the CLI help.
+</p>
+
 <div class="meta"><dl>
 <dt>Source</dt><dd>github.com/McGranahanLab/TcellExTRECT — <code>data-raw/cov_example.rda</code></dd><br>
 <dt>Reference build</dt><dd>hg19 (TRA: chr14:22,090,057-23,221,076)</dd><br>
@@ -109,6 +122,11 @@ print(dict(_core.fraction_from_coverage(
     pos, dep,
     segs['focal'][0], segs['focal'][1],
     segs['local1'][0], segs['local1'][1],
-    segs['local2'][0], segs['local2'][1], 0)))
+    segs['local2'][0], segs['local2'][1],
+    0,                       # min_cov
+    None)))                  # exons (capture BED) — None == legacy whole-window
 "</code></pre>
+<p style="font-size:0.88rem;color:#555;">For a real BAM, pass an exon list
+to restrict coverage to captured positions:
+<code>exons = splithunter.loci.load_exons_bed("kit.bed", "chr14")</code>.</p>
 </body></html>
