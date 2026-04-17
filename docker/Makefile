@@ -15,4 +15,4 @@ build:
 push:
 	docker push $(NS)/$(BASENAME):$(TAG)
 testrun:
-	docker run $(NS)/$(BASENAME):$(TAG) splithunter.py
+	docker run $(NS)/$(BASENAME):$(TAG) splithunter_run --help
