@@ -384,3 +384,63 @@ def test_fraction_from_cov_example_with_hg19_exon_mask_preserves_dip():
     # Exon positions are excluded → baseline_positions is smaller than the
     # legacy count (237,219) but most intronic positions survive.
     assert 150_000 < result["baseline_positions"] < 237_220
+
+
+def test_upstream_exon_pipeline_reports_qc_and_exon_counts():
+    pos, dep = _load_cov_example()
+    segs = _load_seg("hg19")
+    exons = sh_loci.load_exons_bed(
+        op.join(FIXTURES, "tcra_exons_hg19.bed"), "chr14")
+    seg = sh_loci.LocusSegments(
+        "TRA", "chr14",
+        segs["all"], segs["focal"], segs["local1"], segs["local2"],
+    )
+    result = sh_tcell.estimate_from_coverage(
+        pos, dep, seg, target_intervals=exons, min_cov=0,
+    )
+    assert result["coverage_mode"] == "upstream-exon-smoothed"
+    assert result["gc_corrected"] is False
+    assert result["focal_positions"] == 0
+    assert result["baseline_positions"] > 10_000
+    assert result["exons_total"] == 192
+    assert 0 <= result["exons_removed"] < 30
+    assert result["qc_fit"] == pytest.approx(0.4696, abs=0.05)
+    assert result["tcell_fraction"] == pytest.approx(0.1844, abs=0.05)
+
+
+def test_upstream_exon_pipeline_ignores_intronic_spike():
+    from splithunter import _core
+
+    pos = list(range(0, 101))
+    dep = []
+    for p in pos:
+        if 40 <= p <= 60:
+            dep.append(1)          # large intronic dip inside focal
+        else:
+            dep.append(50)         # flat exon/background depth
+
+    seg = sh_loci.LocusSegments(
+        "TRA", "chr14",
+        (0, 100),
+        (40, 60),
+        (0, 20),
+        (80, 100),
+    )
+    exons = [(0, 10), (90, 100)]
+
+    legacy = _core.fraction_from_coverage(
+        pos, dep,
+        seg.focal[0], seg.focal[1],
+        seg.left_baseline[0], seg.left_baseline[1],
+        seg.right_baseline[0], seg.right_baseline[1],
+        0,
+    )
+    upstream = sh_tcell.estimate_from_coverage(
+        pos, dep, seg, target_intervals=exons, min_cov=0,
+        median_thresh=1,
+    )
+
+    assert legacy["tcell_fraction"] > 0.9
+    assert upstream["coverage_mode"] == "upstream-exon-smoothed"
+    assert upstream["focal_positions"] == 0
+    assert upstream["tcell_fraction"] == pytest.approx(0.0, abs=1e-6)

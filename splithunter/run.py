@@ -29,6 +29,7 @@ from .loci import (
     load_exons_bed,
     pick_contig,
 )
+from . import tcell as sh_tcell
 from .utils import DefaultHelpParser, get_abs_path, mkdir
 
 logging.basicConfig()
@@ -57,15 +58,14 @@ def set_argparse():
     p.add_argument('--tcell-fraction', action='store_true',
                    help='Also compute TcellExTRECT-style coverage fraction')
     p.add_argument('--targets', default=None,
-                   help='Capture-kit exon BED. Positions inside listed '
-                        'intervals are EXCLUDED from the coverage median so '
-                        'that bait-inflated depth does not skew the baseline '
-                        'while the focal (intronic) V-J window is untouched. '
-                        'Recommended for WES BAMs.  TRA falls back to a '
-                        'packaged default exon set when --targets is omitted.')
+                   help='Capture-kit exon BED. These intervals define the '
+                        'exon signal track used by the upstream-style '
+                        'TcellExTRECT estimator. Recommended for WES BAMs. '
+                        'TRA falls back to a packaged default exon set when '
+                        '--targets is omitted.')
     p.add_argument('--no-default-targets', action='store_true',
-                   help='Disable the packaged default exon mask — compute '
-                        'over full focal/baseline windows (WGS mode).')
+                   help='Disable the packaged default exon set and use the '
+                        'legacy whole-window estimator (WGS mode).')
     p.add_argument('--pad', type=int, default=30,
                    help='Significant match / clip padding')
     p.add_argument('--indel', type=int, default=10_000,
@@ -138,13 +138,13 @@ def analyze_bam(samplekey, bam, args, loci):
             else:
                 mask = default_exons_for(locus.name, chrom)
             try:
-                tc = _core.tcell_fraction(
-                    bam, seg.chrom,
-                    seg.focal[0], seg.focal[1],
-                    seg.left_baseline[0], seg.left_baseline[1],
-                    seg.right_baseline[0], seg.right_baseline[1],
-                    1, 1,
-                    mask,
+                tc = sh_tcell.estimate(
+                    bam,
+                    seg,
+                    min_mapq=1,
+                    min_cov=1,
+                    target_mask=mask,
+                    reference_fasta=args.reference,
                 )
                 for k, v in dict(tc).items():
                     result[f"{locus.name}.TCELL-{k}"] = v
@@ -238,6 +238,7 @@ def main(args=None):
     start = time.time()
     workdir = args.workdir
     cwd = os.getcwd()
+    args.reference = get_abs_path(args.reference)
     if workdir != cwd:
         mkdir(workdir, logger=logger)
 

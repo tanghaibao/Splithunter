@@ -43,11 +43,14 @@ locus in each JSON.
 splithunter_tcell path/to/sample.bam --locus TRA
 # or:
 splithunter_tcell path/to/sample.bam --locus TRA --json
+# optional GC-corrected upstream path:
+splithunter_tcell path/to/sample.bam --locus TRA --reference ref.fa
 ```
 
-This computes the median log2 ratio between the focal V-J window and the
-flanking baseline windows and derives the fraction as `1 - 2^logR` (clamped to
-[0, 1]).
+With exon targets available, this now follows the original TcellExTRECT
+semantics more closely: exon-restricted coverage, per-exon running medians,
+low-depth exon removal, smoothed focal log-ratio estimation, and QC reporting.
+Use `--no-default-targets` to force the older whole-window approximation.
 
 ## Development
 
