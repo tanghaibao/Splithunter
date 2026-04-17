@@ -1,154 +1,163 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
-<title>TcellExTRECT cov_example — WES exon-mask demo</title>
-<style>body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-       margin: 2rem auto; max-width: 1080px; color: #222; line-height: 1.5;
+<title>TcellExTRECT cov_example — upstream-style exon report</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+       margin: 2rem auto; max-width: 980px; color: #222; line-height: 1.55;
        padding: 0 1rem; }
 h1 { border-bottom: 2px solid #2c3e50; padding-bottom: .4rem; }
 h2 { color: #2c3e50; margin-top: 2rem; border-bottom: 1px solid #eee;
      padding-bottom: .2rem; }
-h3 { color: #34495e; margin-top: 1.4rem; }
 table { border-collapse: collapse; width: 100%; margin-top: 1rem;
-        font-size: 0.92rem; }
-th, td { border: 1px solid #ddd; padding: .45rem .65rem; text-align: right; }
+        font-size: 0.94rem; }
+th, td { border: 1px solid #ddd; padding: .5rem .7rem; text-align: right; }
 th { background: #f4f6f8; text-align: center; }
 td.label { text-align: left; font-weight: 600; }
 .meta { background: #f8f9fa; padding: 1rem 1.2rem;
         border-left: 4px solid #3498db; border-radius: 0 4px 4px 0; }
-.meta dt { font-weight: 600; display: inline-block; min-width: 140px; }
+.meta dt { font-weight: 600; display: inline-block; min-width: 150px; }
 .callout { background: #fffbe6; border-left: 4px solid #f1c40f;
-           padding: .8rem 1.1rem; border-radius: 0 4px 4px 0;
-           font-size: 0.92rem; margin: 1rem 0; }
-.grid { display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
-        gap: 0.9rem; margin-top: 1rem; }
+           padding: .8rem 1rem; border-radius: 0 4px 4px 0;
+           margin: 1rem 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+        gap: .9rem; margin-top: 1rem; }
 .card { border: 1px solid #e1e4e8; border-radius: 6px; padding: .9rem 1rem;
         background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-.card .k { color: #7f8c8d; font-size: 0.78rem; text-transform: uppercase;
-           letter-spacing: 0.04em; }
-.card .v { font-size: 1.55rem; font-weight: 700; color: #2c3e50;
-           margin-top: .25rem; }
-.card .sub { color: #95a5a6; font-size: 0.82rem; }
-.legend { font-size: 0.82rem; color: #555; margin-top: .4rem; }
+.card .k { color: #7f8c8d; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; }
+.card .v { font-size: 1.5rem; font-weight: 700; color: #2c3e50; margin-top: .25rem; }
+.card .sub { color: #95a5a6; font-size: .84rem; }
+.figure { margin: 1rem 0 .4rem; }
+.caption { color: #555; font-size: .88rem; margin-top: .45rem; }
+.legend { font-size: .82rem; color: #555; margin-top: .35rem; }
 .legend span { display: inline-block; width: 12px; height: 12px;
                border-radius: 2px; vertical-align: middle; margin-right: 4px; }
-code { background: #f4f6f8; padding: .1rem .35rem; border-radius: 3px;
-       font-size: 0.88em; }
-pre { background: #f4f6f8; padding: .8rem 1rem; border-radius: 4px;
-      overflow-x: auto; font-size: 0.85rem; }</style></head><body>
-<h1>TcellExTRECT <code>cov_example</code> — real T-cell signal with exon masking</h1>
-<p>Coverage track from McGranahanLab/TcellExTRECT's bundled
-<code>cov_example</code> dataset (BSD-3 licensed). It is a pan-cancer WES
-sample with a textbook ~50% T-cell infiltrate, recomputed here from the
-splithunter Rust core
-(<code>splithunter._core.fraction_from_coverage</code>) using the
-capture-kit exon BED as a coverage mask.</p>
+.compare { display: grid; gap: .75rem; margin-top: 1rem; }
+.compare-row { display: grid; grid-template-columns: 180px 1fr 90px;
+               gap: .8rem; align-items: center; }
+.compare-row .name { font-weight: 600; text-align: left; }
+.track { background: #ecf0f1; height: 14px; border-radius: 999px; overflow: hidden; }
+.fill { display: block; height: 100%; }
+.fill.legacy { background: linear-gradient(90deg, #7f8c8d, #2c3e50); }
+.fill.upstream { background: linear-gradient(90deg, #27ae60, #2980b9); }
+.compare-row .value { text-align: right; font-variant-numeric: tabular-nums; }
+code, pre { background: #f4f6f8; border-radius: 4px; }
+code { padding: .1rem .35rem; font-size: .9em; }
+pre { padding: .8rem 1rem; overflow-x: auto; font-size: .86rem; }
+</style></head><body>
+<h1>TcellExTRECT <code>cov_example</code> — upstream-style exon report</h1>
+<p>This snapshot reflects Splithunter's corrected TcellExTRECT implementation.
+For WES-style runs with exon intervals, the estimator now follows the original
+pipeline semantics: exon-selected coverage, per-exon running medians, low-depth
+exon removal, smoothed focal log-ratio estimation, and QC reporting.</p>
 
 <div class="meta"><dl>
-<dt>Source</dt><dd>github.com/McGranahanLab/TcellExTRECT — <code>data-raw/cov_example.rda</code></dd><br>
-<dt>Reference build</dt><dd>hg19 (TRA: chr14:22,090,057–23,221,076)</dd><br>
-<dt>Target mask</dt><dd><code>tests/fixtures/tcra_exons_hg19.bed</code> (192 exon intervals from <code>TCRA_exons_hg19.rda</code>)</dd><br>
-<dt>Engine</dt><dd><code>splithunter._core.fraction_from_coverage</code> (Rust)</dd><br>
-<dt>Generated</dt><dd>2026-04-16 21:04:13</dd>
+<dt>Source</dt><dd>McGranahanLab/TcellExTRECT <code>cov_example</code> and <code>TCRA_exons_hg19</code></dd><br>
+<dt>Reference build</dt><dd>hg19 TRA: chr14:22,090,057–23,221,076</dd><br>
+<dt>Exon set</dt><dd><code>tests/fixtures/tcra_exons_hg19.bed</code> (192 intervals)</dd><br>
+<dt>Engine</dt><dd><code>splithunter.tcell.estimate_from_coverage()</code></dd><br>
+<dt>Generated</dt><dd>2026-04-16</dd>
 </dl></div>
 
 <div class="callout">
-<strong>Mask semantics.</strong> The V-J focal window is intronic in every
-reference build, so this estimator measures the <em>off-target bleed</em>
-depth — reads that spill from captured exons into the surrounding intron
-and drop when the V-J region is deleted in T-cells. On WES, the few
-positions that fall inside captured exons carry bait-inflated depth
-(~40× vs ~2× bleed) and can dominate the baseline median while the focal
-median stays on the bleed scale, biasing the log-ratio. Splithunter
-<em>masks</em> exon positions (passed via <code>--targets BED</code>) so
-focal and baseline medians are taken on the same bleed-depth scale.
+<strong>Why this changed.</strong> The older Splithunter port treated exon BEDs
+as regions to exclude from a whole-window focal-vs-baseline median. Upstream
+TcellExTRECT does the opposite: exons are the signal substrate. The focal TRA
+window is intronic, so under the corrected pipeline this fixture has
+<strong>0 focal exon positions</strong> and the score comes from the smoothed
+exon log-ratio trend across the locus rather than an intronic median.
 </div>
 
-<h2>Headline (exon-masked)</h2>
+<h2>Headline</h2>
 <div class="grid">
-<div class="card"><div class="k">T-cell fraction</div>
-<div class="v">50.00%</div>
-<div class="sub">95% CI 0.00% – 50.00%</div></div>
-<div class="card"><div class="k">log₂ coverage ratio</div>
-<div class="v">-1.0000</div>
-<div class="sub">focal vs flanking baseline (bleed)</div></div>
-<div class="card"><div class="k">Focal median depth</div>
-<div class="v">1.0</div>
-<div class="sub">30,133 positions</div></div>
-<div class="card"><div class="k">Baseline median depth</div>
-<div class="v">2.0</div>
-<div class="sub">225,630 positions</div></div>
+<div class="card"><div class="k">Coverage Mode</div><div class="v">Upstream</div><div class="sub">upstream-exon-smoothed</div></div>
+<div class="card"><div class="k">T-cell fraction</div><div class="v">18.44%</div><div class="sub">95% CI 16.26% – 20.56%</div></div>
+<div class="card"><div class="k">log₂ coverage ratio</div><div class="v">-0.2940</div><div class="sub">smoothed exon trend at focal V-J</div></div>
+<div class="card"><div class="k">QC fit</div><div class="v">0.4696</div><div class="sub">lower is cleaner</div></div>
+<div class="card"><div class="k">Baseline median depth</div><div class="v">293</div><div class="sub">11,551 baseline exon positions</div></div>
+<div class="card"><div class="k">Focal exon positions</div><div class="v">0</div><div class="sub">focal TRA V-J is intronic</div></div>
 </div>
 
-<h2>Coverage track over the TRA locus</h2>
-<svg viewBox="0 0 1000 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;"><rect x="70" y="40" width="900" height="205" fill="#fafbfc" stroke="#ddd"/><rect x="70.0" y="40" width="165.6" height="205" fill="#2c3e50" fill-opacity="0.1"/><text x="152.8" y="30" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="600">left baseline</text><rect x="634.9" y="40" width="63.7" height="205" fill="#c0392b" fill-opacity="0.13"/><text x="666.8" y="30" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="600">focal V-J</text><rect x="807.2" y="40" width="162.8" height="205" fill="#2c3e50" fill-opacity="0.1"/><text x="888.6" y="30" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="600">right baseline</text><line x1="65" x2="70" y1="245.0" y2="245.0" stroke="#666"/><text x="62" y="248.0" text-anchor="end" font-size="10" fill="#555">0</text><line x1="70" x2="970" y1="245.0" y2="245.0" stroke="#eee"/><line x1="65" x2="70" y1="203.7" y2="203.7" stroke="#666"/><text x="62" y="206.7" text-anchor="end" font-size="10" fill="#555">60</text><line x1="70" x2="970" y1="203.7" y2="203.7" stroke="#eee"/><line x1="65" x2="70" y1="162.4" y2="162.4" stroke="#666"/><text x="62" y="165.4" text-anchor="end" font-size="10" fill="#555">120</text><line x1="70" x2="970" y1="162.4" y2="162.4" stroke="#eee"/><line x1="65" x2="70" y1="121.1" y2="121.1" stroke="#666"/><text x="62" y="124.1" text-anchor="end" font-size="10" fill="#555">180</text><line x1="70" x2="970" y1="121.1" y2="121.1" stroke="#eee"/><line x1="65" x2="70" y1="79.8" y2="79.8" stroke="#666"/><text x="62" y="82.8" text-anchor="end" font-size="10" fill="#555">240</text><line x1="70" x2="970" y1="79.8" y2="79.8" stroke="#eee"/><line x1="77.9" x2="77.9" y1="245" y2="250" stroke="#666"/><text x="77.9" y="263" text-anchor="middle" font-size="9" fill="#555">22.10</text><line x1="237.1" x2="237.1" y1="245" y2="250" stroke="#666"/><text x="237.1" y="263" text-anchor="middle" font-size="9" fill="#555">22.30</text><line x1="396.2" x2="396.2" y1="245" y2="250" stroke="#666"/><text x="396.2" y="263" text-anchor="middle" font-size="9" fill="#555">22.50</text><line x1="555.4" x2="555.4" y1="245" y2="250" stroke="#666"/><text x="555.4" y="263" text-anchor="middle" font-size="9" fill="#555">22.70</text><line x1="714.5" x2="714.5" y1="245" y2="250" stroke="#666"/><text x="714.5" y="263" text-anchor="middle" font-size="9" fill="#555">22.90</text><line x1="873.7" x2="873.7" y1="245" y2="250" stroke="#666"/><text x="873.7" y="263" text-anchor="middle" font-size="9" fill="#555">23.10</text><polygon points="70.7,245.0 70.7,182.3 72.2,242.9 73.7,243.8 75.2,242.8 76.7,243.8 78.2,244.1 79.7,93.2 81.2,243.8 82.7,243.4 84.2,244.0 85.7,243.4 87.2,186.7 88.7,242.6 90.2,243.3 91.7,238.9 93.2,237.6 94.7,244.1 96.2,243.3 97.7,242.3 99.2,242.7 100.7,242.3 102.2,244.0 103.7,157.8 105.2,49.8 106.7,244.2 108.2,241.8 109.7,243.6 111.2,244.0 112.7,243.4 114.2,243.9 115.7,243.6 117.2,244.2 118.7,243.9 120.2,243.9 121.7,244.0 123.2,244.1 124.7,243.5 126.2,243.6 127.7,243.9 129.2,244.1 130.7,206.0 132.2,235.3 133.7,244.2 135.2,244.2 136.7,244.2 138.2,244.3 139.7,244.1 141.2,227.5 142.7,160.5 144.2,243.4 145.7,243.9 147.2,243.9 148.7,239.3 150.2,243.6 151.7,133.9 153.2,243.1 154.7,243.4 156.2,244.0 157.7,243.7 159.2,243.8 160.7,177.5 162.2,209.0 163.7,244.0 165.2,244.0 166.7,242.4 168.2,243.9 169.7,244.2 171.2,174.3 172.7,239.5 174.2,243.9 175.7,242.9 177.2,244.0 178.7,244.2 180.2,243.5 181.7,244.3 183.2,244.2 184.7,244.3 186.2,210.7 187.7,180.7 189.2,243.9 190.7,244.1 192.2,243.9 193.7,243.6 195.2,243.8 196.7,242.9 198.2,161.2 199.7,244.2 201.2,243.7 202.7,243.6 204.2,243.8 205.7,243.6 207.2,243.7 208.7,243.4 210.2,162.1 211.7,243.9 213.2,243.9 214.7,243.9 216.2,243.3 217.7,243.0 219.2,243.4 220.7,160.8 222.2,244.3 223.7,243.9 225.2,243.9 226.7,243.4 228.2,243.9 229.7,242.1 231.2,223.2 232.7,154.1 234.2,244.0 235.7,243.8 237.2,243.3 238.7,243.4 240.2,242.9 241.7,244.1 243.2,243.9 244.7,158.0 246.2,244.0 247.7,244.1 249.2,88.3 250.7,244.2 252.2,244.0 253.7,168.5 255.2,163.1 256.7,244.0 258.2,244.1 259.7,242.9 261.2,243.4 262.7,243.4 264.2,244.1 265.7,224.3 267.2,185.1 268.7,244.3 270.2,234.7 271.7,238.9 273.2,244.2 274.7,242.3 276.2,244.0 277.7,244.1 279.2,243.8 280.7,242.9 282.2,189.5 283.7,244.2 285.2,243.8 286.7,95.1 288.2,241.5 289.7,244.2 291.2,244.1 292.7,244.2 294.2,202.6 295.7,239.9 297.2,242.9 298.7,243.7 300.2,243.8 301.7,243.9 303.2,243.7 304.7,244.1 306.2,100.3 307.7,244.2 310.7,157.4 312.2,244.1 313.7,243.7 315.2,244.1 316.7,243.6 318.2,244.2 319.7,240.9 321.2,244.1 322.7,244.2 324.2,203.9 325.7,243.9 327.2,244.3 328.7,244.1 330.2,242.9 331.7,244.0 333.2,244.2 334.7,243.9 336.2,244.2 337.7,243.6 339.2,244.2 340.7,244.2 342.2,244.1 343.7,152.2 345.2,243.6 346.7,244.0 348.2,243.8 349.7,244.0 351.2,242.8 352.7,244.1 354.2,121.9 355.7,243.7 357.2,243.6 358.7,242.9 360.2,244.2 361.7,244.1 363.2,176.6 364.7,243.6 367.7,243.7 369.2,156.0 370.7,244.0 372.2,171.3 373.7,151.4 375.2,243.7 376.7,104.8 378.2,239.6 379.7,243.6 381.2,225.0 382.7,229.9 384.2,243.7 385.7,244.2 387.2,243.0 388.7,244.0 390.2,243.8 391.7,244.2 393.2,243.4 394.7,244.0 396.2,244.2 397.7,243.1 399.2,243.3 400.7,244.2 402.2,244.2 403.7,177.4 405.2,243.8 406.7,244.0 408.2,243.7 409.7,244.2 411.2,244.0 412.7,190.6 414.2,244.1 415.7,244.2 417.2,244.2 418.7,244.3 420.2,243.8 421.7,243.4 423.2,165.8 424.7,243.9 426.2,243.6 427.7,210.1 429.2,243.7 430.7,243.8 432.2,244.1 433.7,244.0 435.2,243.8 436.7,243.6 438.2,244.0 439.7,120.7 441.2,243.5 442.7,243.2 444.2,243.6 445.7,244.1 447.2,111.3 448.7,233.9 450.2,243.8 451.7,243.6 453.2,243.7 454.7,139.6 456.2,244.0 457.7,243.3 459.2,242.5 460.7,123.4 462.2,243.1 463.7,244.2 465.2,243.6 468.2,215.3 469.7,191.6 471.2,244.0 472.7,244.2 474.2,244.0 475.7,160.8 477.2,225.3 478.7,244.3 480.2,243.4 481.7,244.0 483.2,243.9 484.7,244.2 486.2,243.9 487.7,241.4 489.2,189.8 490.7,243.5 492.2,243.4 493.7,243.5 495.2,244.0 496.7,244.1 498.2,244.2 499.7,239.3 501.2,162.3 502.7,244.1 504.2,188.3 505.7,205.0 507.2,243.5 508.7,243.7 510.2,244.3 511.7,244.0 513.2,244.0 514.7,243.4 516.2,244.0 517.7,243.1 519.2,244.2 520.7,244.3 522.2,242.5 523.7,244.1 525.2,243.9 526.7,243.9 528.2,243.9 529.7,244.1 531.2,207.3 532.7,205.1 534.2,243.6 535.7,183.8 537.2,244.1 538.7,243.8 540.2,243.9 541.7,243.4 543.2,243.9 544.7,242.6 546.2,244.2 547.7,209.9 549.2,244.1 550.7,171.0 552.2,230.5 553.7,244.2 555.2,243.3 556.7,244.0 558.2,243.1 559.7,243.3 561.2,243.9 562.7,243.8 564.2,244.2 565.7,243.6 567.2,243.4 568.7,243.1 570.2,243.9 571.7,243.9 573.2,244.2 574.7,244.2 576.2,244.1 577.7,244.1 579.2,244.1 580.7,243.9 582.2,214.1 583.7,243.8 585.2,243.4 586.7,183.4 588.2,214.7 589.7,244.2 591.2,227.8 592.7,242.3 594.2,137.0 595.7,238.0 597.2,244.2 598.7,243.9 600.2,244.2 601.7,244.1 603.2,244.2 604.7,243.9 606.2,243.8 607.7,244.2 609.2,244.1 610.7,243.8 612.2,170.7 613.7,241.5 615.2,244.3 616.7,243.9 618.2,243.1 619.7,243.4 621.2,149.6 622.7,243.8 624.2,243.8 625.7,173.9 627.2,243.7 628.7,244.3 630.2,244.0 631.7,244.3 633.2,242.9 634.7,244.0 636.2,244.0 637.7,243.5 639.2,243.6 640.7,243.8 642.2,244.1 643.7,244.1 645.2,244.2 646.7,244.3 648.2,244.0 649.7,244.0 651.2,244.3 652.7,244.2 654.2,244.1 655.7,244.3 657.2,244.3 658.7,243.9 660.2,244.2 661.7,244.2 663.2,244.1 664.7,244.2 666.2,244.1 667.7,244.1 669.2,244.1 670.7,244.3 672.2,244.1 673.7,244.1 675.2,243.9 676.7,243.6 678.2,243.8 679.7,243.7 681.2,244.1 682.7,243.9 684.2,243.4 685.7,243.8 687.2,244.0 688.7,244.0 690.2,244.1 691.7,243.2 693.2,243.8 694.7,243.6 696.2,244.0 697.7,244.2 699.2,244.1 700.7,243.8 702.2,243.6 703.7,220.1 705.2,161.6 706.7,243.8 708.2,180.3 709.7,244.0 711.2,243.4 712.7,243.9 714.2,243.7 715.7,243.3 717.2,244.1 718.7,243.6 720.2,186.3 721.7,237.7 723.2,243.7 724.7,244.3 726.2,244.0 727.7,243.7 729.2,196.8 730.7,243.5 732.2,243.5 733.7,194.3 735.2,191.3 736.7,204.0 738.2,199.6 739.7,145.7 741.2,149.3 742.7,89.4 744.2,181.4 745.7,219.7 747.2,242.8 748.7,227.3 750.2,197.1 751.7,198.0 753.2,151.3 754.7,212.5 756.2,195.1 757.7,190.6 759.2,232.5 760.7,149.6 762.2,200.5 763.7,180.7 765.2,216.0 766.7,191.7 768.2,222.5 769.7,160.3 771.2,168.3 772.7,185.5 774.2,198.9 775.7,197.7 777.2,224.6 778.7,161.2 780.2,164.7 781.7,144.9 783.2,239.2 784.7,188.3 786.2,168.7 787.7,198.1 789.2,172.5 790.7,215.2 792.2,169.8 793.7,148.3 795.2,164.9 796.7,207.1 798.2,173.7 799.7,190.1 801.2,220.5 802.7,207.1 804.2,200.4 805.7,226.1 807.2,193.5 808.7,229.4 810.2,146.4 811.7,242.6 813.2,243.3 814.7,193.7 816.2,191.8 817.7,243.6 819.2,243.1 820.7,195.6 822.2,243.5 823.7,243.1 825.2,243.6 826.7,244.2 828.2,242.2 829.7,213.9 831.2,242.9 832.7,242.9 834.2,243.3 835.7,243.4 837.2,243.4 838.7,243.9 840.2,201.2 841.7,242.6 843.2,240.8 844.7,244.0 846.2,242.9 847.7,177.6 849.2,184.6 850.7,197.7 852.2,157.1 853.7,198.9 855.2,243.4 856.7,210.7 858.2,223.5 859.7,243.2 861.2,243.5 862.7,244.1 864.2,244.3 865.7,244.0 867.2,243.5 868.7,243.6 870.2,244.1 871.7,243.6 873.2,243.8 874.7,243.8 876.2,101.4 877.7,242.9 879.2,242.8 880.7,240.2 882.2,241.7 883.7,242.7 885.2,243.6 886.7,243.2 888.2,243.8 889.7,243.1 891.2,242.9 892.7,243.7 894.2,243.3 895.7,243.2 897.2,243.4 898.7,241.8 900.2,243.2 901.7,243.8 903.2,243.7 904.7,243.7 906.2,243.8 907.7,244.2 910.7,243.8 912.2,243.1 913.7,244.3 915.2,244.1 916.7,243.6 918.2,243.2 919.7,243.8 921.2,243.5 922.7,244.1 924.2,240.4 925.7,243.6 927.2,243.8 928.7,244.0 930.2,241.1 931.7,241.2 933.2,243.8 934.7,243.8 936.2,244.1 937.7,244.1 939.2,243.8 940.7,244.1 942.2,244.1 943.7,243.1 945.2,243.8 946.7,231.2 948.2,235.2 949.7,232.2 951.2,242.8 952.7,242.9 954.2,243.5 955.7,243.8 957.2,244.2 958.7,243.4 960.2,243.3 961.7,243.0 963.2,243.2 964.7,243.7 966.2,243.8 967.7,243.0 969.2,243.4 969.2,245.0" fill="#3498db" fill-opacity="0.35"/><polyline points="70.7,182.3 72.2,242.9 73.7,243.8 75.2,242.8 76.7,243.8 78.2,244.1 79.7,93.2 81.2,243.8 82.7,243.4 84.2,244.0 85.7,243.4 87.2,186.7 88.7,242.6 90.2,243.3 91.7,238.9 93.2,237.6 94.7,244.1 96.2,243.3 97.7,242.3 99.2,242.7 100.7,242.3 102.2,244.0 103.7,157.8 105.2,49.8 106.7,244.2 108.2,241.8 109.7,243.6 111.2,244.0 112.7,243.4 114.2,243.9 115.7,243.6 117.2,244.2 118.7,243.9 120.2,243.9 121.7,244.0 123.2,244.1 124.7,243.5 126.2,243.6 127.7,243.9 129.2,244.1 130.7,206.0 132.2,235.3 133.7,244.2 135.2,244.2 136.7,244.2 138.2,244.3 139.7,244.1 141.2,227.5 142.7,160.5 144.2,243.4 145.7,243.9 147.2,243.9 148.7,239.3 150.2,243.6 151.7,133.9 153.2,243.1 154.7,243.4 156.2,244.0 157.7,243.7 159.2,243.8 160.7,177.5 162.2,209.0 163.7,244.0 165.2,244.0 166.7,242.4 168.2,243.9 169.7,244.2 171.2,174.3 172.7,239.5 174.2,243.9 175.7,242.9 177.2,244.0 178.7,244.2 180.2,243.5 181.7,244.3 183.2,244.2 184.7,244.3 186.2,210.7 187.7,180.7 189.2,243.9 190.7,244.1 192.2,243.9 193.7,243.6 195.2,243.8 196.7,242.9 198.2,161.2 199.7,244.2 201.2,243.7 202.7,243.6 204.2,243.8 205.7,243.6 207.2,243.7 208.7,243.4 210.2,162.1 211.7,243.9 213.2,243.9 214.7,243.9 216.2,243.3 217.7,243.0 219.2,243.4 220.7,160.8 222.2,244.3 223.7,243.9 225.2,243.9 226.7,243.4 228.2,243.9 229.7,242.1 231.2,223.2 232.7,154.1 234.2,244.0 235.7,243.8 237.2,243.3 238.7,243.4 240.2,242.9 241.7,244.1 243.2,243.9 244.7,158.0 246.2,244.0 247.7,244.1 249.2,88.3 250.7,244.2 252.2,244.0 253.7,168.5 255.2,163.1 256.7,244.0 258.2,244.1 259.7,242.9 261.2,243.4 262.7,243.4 264.2,244.1 265.7,224.3 267.2,185.1 268.7,244.3 270.2,234.7 271.7,238.9 273.2,244.2 274.7,242.3 276.2,244.0 277.7,244.1 279.2,243.8 280.7,242.9 282.2,189.5 283.7,244.2 285.2,243.8 286.7,95.1 288.2,241.5 289.7,244.2 291.2,244.1 292.7,244.2 294.2,202.6 295.7,239.9 297.2,242.9 298.7,243.7 300.2,243.8 301.7,243.9 303.2,243.7 304.7,244.1 306.2,100.3 307.7,244.2 310.7,157.4 312.2,244.1 313.7,243.7 315.2,244.1 316.7,243.6 318.2,244.2 319.7,240.9 321.2,244.1 322.7,244.2 324.2,203.9 325.7,243.9 327.2,244.3 328.7,244.1 330.2,242.9 331.7,244.0 333.2,244.2 334.7,243.9 336.2,244.2 337.7,243.6 339.2,244.2 340.7,244.2 342.2,244.1 343.7,152.2 345.2,243.6 346.7,244.0 348.2,243.8 349.7,244.0 351.2,242.8 352.7,244.1 354.2,121.9 355.7,243.7 357.2,243.6 358.7,242.9 360.2,244.2 361.7,244.1 363.2,176.6 364.7,243.6 367.7,243.7 369.2,156.0 370.7,244.0 372.2,171.3 373.7,151.4 375.2,243.7 376.7,104.8 378.2,239.6 379.7,243.6 381.2,225.0 382.7,229.9 384.2,243.7 385.7,244.2 387.2,243.0 388.7,244.0 390.2,243.8 391.7,244.2 393.2,243.4 394.7,244.0 396.2,244.2 397.7,243.1 399.2,243.3 400.7,244.2 402.2,244.2 403.7,177.4 405.2,243.8 406.7,244.0 408.2,243.7 409.7,244.2 411.2,244.0 412.7,190.6 414.2,244.1 415.7,244.2 417.2,244.2 418.7,244.3 420.2,243.8 421.7,243.4 423.2,165.8 424.7,243.9 426.2,243.6 427.7,210.1 429.2,243.7 430.7,243.8 432.2,244.1 433.7,244.0 435.2,243.8 436.7,243.6 438.2,244.0 439.7,120.7 441.2,243.5 442.7,243.2 444.2,243.6 445.7,244.1 447.2,111.3 448.7,233.9 450.2,243.8 451.7,243.6 453.2,243.7 454.7,139.6 456.2,244.0 457.7,243.3 459.2,242.5 460.7,123.4 462.2,243.1 463.7,244.2 465.2,243.6 468.2,215.3 469.7,191.6 471.2,244.0 472.7,244.2 474.2,244.0 475.7,160.8 477.2,225.3 478.7,244.3 480.2,243.4 481.7,244.0 483.2,243.9 484.7,244.2 486.2,243.9 487.7,241.4 489.2,189.8 490.7,243.5 492.2,243.4 493.7,243.5 495.2,244.0 496.7,244.1 498.2,244.2 499.7,239.3 501.2,162.3 502.7,244.1 504.2,188.3 505.7,205.0 507.2,243.5 508.7,243.7 510.2,244.3 511.7,244.0 513.2,244.0 514.7,243.4 516.2,244.0 517.7,243.1 519.2,244.2 520.7,244.3 522.2,242.5 523.7,244.1 525.2,243.9 526.7,243.9 528.2,243.9 529.7,244.1 531.2,207.3 532.7,205.1 534.2,243.6 535.7,183.8 537.2,244.1 538.7,243.8 540.2,243.9 541.7,243.4 543.2,243.9 544.7,242.6 546.2,244.2 547.7,209.9 549.2,244.1 550.7,171.0 552.2,230.5 553.7,244.2 555.2,243.3 556.7,244.0 558.2,243.1 559.7,243.3 561.2,243.9 562.7,243.8 564.2,244.2 565.7,243.6 567.2,243.4 568.7,243.1 570.2,243.9 571.7,243.9 573.2,244.2 574.7,244.2 576.2,244.1 577.7,244.1 579.2,244.1 580.7,243.9 582.2,214.1 583.7,243.8 585.2,243.4 586.7,183.4 588.2,214.7 589.7,244.2 591.2,227.8 592.7,242.3 594.2,137.0 595.7,238.0 597.2,244.2 598.7,243.9 600.2,244.2 601.7,244.1 603.2,244.2 604.7,243.9 606.2,243.8 607.7,244.2 609.2,244.1 610.7,243.8 612.2,170.7 613.7,241.5 615.2,244.3 616.7,243.9 618.2,243.1 619.7,243.4 621.2,149.6 622.7,243.8 624.2,243.8 625.7,173.9 627.2,243.7 628.7,244.3 630.2,244.0 631.7,244.3 633.2,242.9 634.7,244.0 636.2,244.0 637.7,243.5 639.2,243.6 640.7,243.8 642.2,244.1 643.7,244.1 645.2,244.2 646.7,244.3 648.2,244.0 649.7,244.0 651.2,244.3 652.7,244.2 654.2,244.1 655.7,244.3 657.2,244.3 658.7,243.9 660.2,244.2 661.7,244.2 663.2,244.1 664.7,244.2 666.2,244.1 667.7,244.1 669.2,244.1 670.7,244.3 672.2,244.1 673.7,244.1 675.2,243.9 676.7,243.6 678.2,243.8 679.7,243.7 681.2,244.1 682.7,243.9 684.2,243.4 685.7,243.8 687.2,244.0 688.7,244.0 690.2,244.1 691.7,243.2 693.2,243.8 694.7,243.6 696.2,244.0 697.7,244.2 699.2,244.1 700.7,243.8 702.2,243.6 703.7,220.1 705.2,161.6 706.7,243.8 708.2,180.3 709.7,244.0 711.2,243.4 712.7,243.9 714.2,243.7 715.7,243.3 717.2,244.1 718.7,243.6 720.2,186.3 721.7,237.7 723.2,243.7 724.7,244.3 726.2,244.0 727.7,243.7 729.2,196.8 730.7,243.5 732.2,243.5 733.7,194.3 735.2,191.3 736.7,204.0 738.2,199.6 739.7,145.7 741.2,149.3 742.7,89.4 744.2,181.4 745.7,219.7 747.2,242.8 748.7,227.3 750.2,197.1 751.7,198.0 753.2,151.3 754.7,212.5 756.2,195.1 757.7,190.6 759.2,232.5 760.7,149.6 762.2,200.5 763.7,180.7 765.2,216.0 766.7,191.7 768.2,222.5 769.7,160.3 771.2,168.3 772.7,185.5 774.2,198.9 775.7,197.7 777.2,224.6 778.7,161.2 780.2,164.7 781.7,144.9 783.2,239.2 784.7,188.3 786.2,168.7 787.7,198.1 789.2,172.5 790.7,215.2 792.2,169.8 793.7,148.3 795.2,164.9 796.7,207.1 798.2,173.7 799.7,190.1 801.2,220.5 802.7,207.1 804.2,200.4 805.7,226.1 807.2,193.5 808.7,229.4 810.2,146.4 811.7,242.6 813.2,243.3 814.7,193.7 816.2,191.8 817.7,243.6 819.2,243.1 820.7,195.6 822.2,243.5 823.7,243.1 825.2,243.6 826.7,244.2 828.2,242.2 829.7,213.9 831.2,242.9 832.7,242.9 834.2,243.3 835.7,243.4 837.2,243.4 838.7,243.9 840.2,201.2 841.7,242.6 843.2,240.8 844.7,244.0 846.2,242.9 847.7,177.6 849.2,184.6 850.7,197.7 852.2,157.1 853.7,198.9 855.2,243.4 856.7,210.7 858.2,223.5 859.7,243.2 861.2,243.5 862.7,244.1 864.2,244.3 865.7,244.0 867.2,243.5 868.7,243.6 870.2,244.1 871.7,243.6 873.2,243.8 874.7,243.8 876.2,101.4 877.7,242.9 879.2,242.8 880.7,240.2 882.2,241.7 883.7,242.7 885.2,243.6 886.7,243.2 888.2,243.8 889.7,243.1 891.2,242.9 892.7,243.7 894.2,243.3 895.7,243.2 897.2,243.4 898.7,241.8 900.2,243.2 901.7,243.8 903.2,243.7 904.7,243.7 906.2,243.8 907.7,244.2 910.7,243.8 912.2,243.1 913.7,244.3 915.2,244.1 916.7,243.6 918.2,243.2 919.7,243.8 921.2,243.5 922.7,244.1 924.2,240.4 925.7,243.6 927.2,243.8 928.7,244.0 930.2,241.1 931.7,241.2 933.2,243.8 934.7,243.8 936.2,244.1 937.7,244.1 939.2,243.8 940.7,244.1 942.2,244.1 943.7,243.1 945.2,243.8 946.7,231.2 948.2,235.2 949.7,232.2 951.2,242.8 952.7,242.9 954.2,243.5 955.7,243.8 957.2,244.2 958.7,243.4 960.2,243.3 961.7,243.0 963.2,243.2 964.7,243.7 966.2,243.8 967.7,243.0 969.2,243.4" fill="none" stroke="#2980b9" stroke-width="1.2"/><line x1="634.9" x2="698.6" y1="244.3" y2="244.3" stroke="#c0392b" stroke-width="2.5" stroke-dasharray="6 3"/><line x1="70.0" x2="235.6" y1="243.6" y2="243.6" stroke="#2c3e50" stroke-width="2.5" stroke-dasharray="6 3"/><line x1="807.2" x2="970.0" y1="243.6" y2="243.6" stroke="#2c3e50" stroke-width="2.5" stroke-dasharray="6 3"/><rect x="70.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="79.5" y="35" width="0.76" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="86.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="87.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="104.4" y="35" width="0.76" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="131.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="142.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="142.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="151.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="151.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="161.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="161.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="171.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="171.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="186.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="186.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="196.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="198.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="198.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="209.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="209.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="220.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="221.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="232.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="232.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="244.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="244.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="248.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="249.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="253.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="253.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="254.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="255.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="266.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="266.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="281.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="281.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="287.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="287.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="305.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="306.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="310.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="310.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="324.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="324.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="343.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="343.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="353.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="354.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="363.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="363.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="369.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="369.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="373.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="373.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="377.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="377.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="403.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="403.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="412.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="412.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="427.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="427.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="439.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="439.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="447.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="447.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="447.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="454.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="454.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="460.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="460.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="469.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="469.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="476.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="476.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="488.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="488.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="500.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="500.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="504.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="504.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="531.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="532.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="535.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="536.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="547.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="547.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="551.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="551.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="587.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="587.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="594.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="594.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="594.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="612.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="612.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="621.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="621.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="625.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="626.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="707.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="707.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="720.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="720.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="728.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="729.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="733.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="734.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="736.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="737.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="738.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="739.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="740.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="740.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="742.0" y="35" width="0.86" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="744.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="745.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="749.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="750.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="751.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="751.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="752.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="753.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="755.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="755.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="758.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="758.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="760.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="761.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="761.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="763.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="764.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="764.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="765.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="766.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="766.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="767.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="769.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="770.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="771.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="772.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="773.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="774.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="775.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="776.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="776.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="778.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="779.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="780.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="781.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="782.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="784.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="784.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="785.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="785.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="786.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="788.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="788.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="789.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="789.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="790.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="792.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="792.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="793.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="794.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="794.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="795.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="796.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="797.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="798.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="799.3" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="800.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="801.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="802.9" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="803.7" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="804.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="805.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="807.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="808.8" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="809.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="810.4" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="829.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="840.1" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="847.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="850.2" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="851.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="852.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="854.0" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="856.6" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="857.5" y="35" width="0.50" height="4" fill="#8e44ad" fill-opacity="0.9"/><rect x="875.8" y="35" width="0.86" height="4" fill="#8e44ad" fill-opacity="0.9"/><text x="20" y="142.5" font-size="11" fill="#555" transform="rotate(-90 20 142.5)" text-anchor="middle">depth (reads)</text><text x="500.0" y="290" font-size="11" fill="#555" text-anchor="middle">position (Mb) — purple ticks above plot mark the 192 masked TCRA exons</text></svg>
-<div class="legend">
-<span style="background:#3498db;opacity:.5"></span>read depth ·
-<span style="background:#c0392b"></span>focal V-J ·
-<span style="background:#2c3e50"></span>baseline ·
-<span style="background:#8e44ad"></span>masked exons (top ticks) ·
-dashed = median
-</div>
-
-<h2>Mask effect — legacy vs masked</h2>
-<table><thead><tr><th></th><th>Focal med</th><th>Focal positions</th>
-<th>Baseline med</th><th>Baseline positions</th><th>log₂R</th>
-<th>T-cell fraction</th></tr></thead><tbody>
-<tr><td class="label">Legacy (no mask)</td>
-<td>1.0</td><td>30,133</td>
-<td>2.0</td><td>237,219</td>
-<td>-1.0000</td><td>50.00%</td></tr>
-<tr><td class="label">Exon-masked</td>
-<td>1.0</td><td>30,133</td>
-<td>2.0</td><td>225,630</td>
-<td>-1.0000</td><td>50.00%</td></tr>
+<h2>Upstream vs Legacy</h2>
+<table><thead><tr>
+<th>Estimator</th>
+<th>Coverage mode</th>
+<th>Focal median</th>
+<th>Focal positions</th>
+<th>Baseline median</th>
+<th>Baseline positions</th>
+<th>log₂ ratio</th>
+<th>T-cell fraction</th>
+<th>QC fit</th>
+</tr></thead><tbody>
+<tr>
+<td class="label">Corrected default</td>
+<td>upstream-exon-smoothed</td>
+<td>NA</td>
+<td>0</td>
+<td>293</td>
+<td>11,551</td>
+<td>-0.2940</td>
+<td>18.44%</td>
+<td>0.4696</td>
+</tr>
+<tr>
+<td class="label">Legacy fallback</td>
+<td>legacy-whole-window</td>
+<td>1</td>
+<td>30,133</td>
+<td>2</td>
+<td>237,219</td>
+<td>-1.0000</td>
+<td>50.00%</td>
+<td>NA</td>
+</tr>
 </tbody></table>
-<p style="font-size:0.9rem;color:#555;">On <code>cov_example</code> the headline
-fraction is unchanged: the focal window is entirely intronic (so all 30,133
-focal positions survive), and exon positions make up only ~5% of the baseline
-window (11,589 / 237,219 dropped). The mask is a <em>guard</em> against
-bait-edge bias rather than the source of the signal on this pre-cleaned
-demo dataset — on a raw WES BAM with high-depth exon spikes, the effect is
-material.</p>
+
+<h2>Coverage context</h2>
+<figure class="figure">
+<svg viewBox="0 0 1000 280" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;"><rect x="70" y="30" width="900" height="200" fill="#fafbfc" stroke="#ddd"/><rect x="70.0" y="30" width="165.6" height="200" fill="#2c3e50" fill-opacity="0.1"/><text x="152.8" y="22" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="600">left baseline</text><rect x="634.9" y="30" width="63.7" height="200" fill="#c0392b" fill-opacity="0.13"/><text x="666.8" y="22" text-anchor="middle" font-size="11" fill="#c0392b" font-weight="600">focal V-J</text><rect x="807.2" y="30" width="162.8" height="200" fill="#2c3e50" fill-opacity="0.1"/><text x="888.6" y="22" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="600">right baseline</text><line x1="65" x2="70" y1="230.0" y2="230.0" stroke="#666"/><text x="62" y="233.0" text-anchor="end" font-size="10" fill="#555">0</text><line x1="70" x2="970" y1="230.0" y2="230.0" stroke="#eee"/><line x1="65" x2="70" y1="190.6" y2="190.6" stroke="#666"/><text x="62" y="193.6" text-anchor="end" font-size="10" fill="#555">30</text><line x1="70" x2="970" y1="190.6" y2="190.6" stroke="#eee"/><line x1="65" x2="70" y1="151.2" y2="151.2" stroke="#666"/><text x="62" y="154.2" text-anchor="end" font-size="10" fill="#555">60</text><line x1="70" x2="970" y1="151.2" y2="151.2" stroke="#eee"/><line x1="65" x2="70" y1="111.8" y2="111.8" stroke="#666"/><text x="62" y="114.8" text-anchor="end" font-size="10" fill="#555">90</text><line x1="70" x2="970" y1="111.8" y2="111.8" stroke="#eee"/><line x1="65" x2="70" y1="72.4" y2="72.4" stroke="#666"/><text x="62" y="75.4" text-anchor="end" font-size="10" fill="#555">120</text><line x1="70" x2="970" y1="72.4" y2="72.4" stroke="#eee"/><line x1="65" x2="70" y1="33.0" y2="33.0" stroke="#666"/><text x="62" y="36.0" text-anchor="end" font-size="10" fill="#555">150</text><line x1="70" x2="970" y1="33.0" y2="33.0" stroke="#eee"/><line x1="77.9" x2="77.9" y1="230" y2="235" stroke="#666"/><text x="77.9" y="248" text-anchor="middle" font-size="9" fill="#555">22.10</text><line x1="237.1" x2="237.1" y1="230" y2="235" stroke="#666"/><text x="237.1" y="248" text-anchor="middle" font-size="9" fill="#555">22.30</text><line x1="396.2" x2="396.2" y1="230" y2="235" stroke="#666"/><text x="396.2" y="248" text-anchor="middle" font-size="9" fill="#555">22.50</text><line x1="555.4" x2="555.4" y1="230" y2="235" stroke="#666"/><text x="555.4" y="248" text-anchor="middle" font-size="9" fill="#555">22.70</text><line x1="714.5" x2="714.5" y1="230" y2="235" stroke="#666"/><text x="714.5" y="248" text-anchor="middle" font-size="9" fill="#555">22.90</text><line x1="873.7" x2="873.7" y1="230" y2="235" stroke="#666"/><text x="873.7" y="248" text-anchor="middle" font-size="9" fill="#555">23.10</text><polygon points="73.2,230.0 73.2,196.1 79.6,117.7 86.1,194.2 92.5,222.4 98.9,225.7 105.4,69.7 111.8,226.2 118.2,228.0 124.6,227.6 131.1,203.3 137.5,228.4 143.9,175.5 150.4,144.9 156.8,227.6 163.2,163.7 169.6,184.4 176.1,226.4 182.5,228.3 188.9,170.3 195.4,175.3 201.8,218.0 208.2,178.5 214.6,227.7 221.1,181.4 227.5,226.9 233.9,146.4 240.4,227.0 246.8,94.5 253.2,131.6 259.6,227.2 266.1,172.2 272.5,220.6 278.9,182.4 285.4,153.5 291.8,186.4 298.2,224.9 304.6,123.5 311.1,149.9 317.5,226.4 323.9,189.7 330.4,227.9 336.8,228.1 343.2,139.7 349.6,227.2 356.1,156.0 362.5,189.5 368.9,141.1 375.4,89.2 381.8,207.2 388.2,227.3 394.6,228.1 401.1,169.7 407.5,227.8 413.9,183.6 420.4,188.9 426.8,173.3 433.2,227.9 439.6,92.4 446.1,103.3 452.5,169.3 458.9,152.0 465.4,227.6 471.8,174.7 478.2,158.5 484.6,228.0 491.1,196.8 497.5,203.8 503.9,147.5 510.4,228.1 516.8,227.5 523.2,226.6 529.6,174.0 536.1,190.3 542.5,227.0 548.9,163.5 555.4,227.4 561.8,227.6 568.2,227.3 574.6,228.4 581.1,215.3 587.5,175.9 593.9,162.1 600.4,228.3 606.8,228.2 613.2,182.1 619.6,160.7 626.1,178.5 632.5,227.4 638.9,227.6 645.4,228.5 651.8,228.3 658.2,228.5 664.6,228.4 671.1,228.4 677.5,227.5 683.9,227.7 690.4,227.5 696.8,228.0 703.2,173.9 709.6,186.9 716.1,227.4 722.5,190.1 728.9,196.9 735.4,144.2 741.8,39.5 748.2,182.3 754.6,118.7 761.1,109.7 767.5,136.0 773.9,129.9 780.4,110.3 786.8,115.2 793.2,87.1 799.6,157.4 806.1,159.4 812.5,155.0 818.9,178.8 825.4,227.0 831.8,212.4 838.2,204.2 844.6,182.5 851.1,122.7 857.5,197.4 863.9,228.0 870.4,227.5 876.8,145.1 883.2,224.5 889.6,226.8 896.1,226.2 902.5,227.4 908.9,227.7 915.4,226.9 921.8,225.0 928.2,225.7 934.6,227.9 941.1,227.8 947.5,213.1 953.9,226.8 960.4,226.8 966.8,227.2 966.8,230.0" fill="#3498db" fill-opacity="0.35"/><polyline points="73.2,196.1 79.6,117.7 86.1,194.2 92.5,222.4 98.9,225.7 105.4,69.7 111.8,226.2 118.2,228.0 124.6,227.6 131.1,203.3 137.5,228.4 143.9,175.5 150.4,144.9 156.8,227.6 163.2,163.7 169.6,184.4 176.1,226.4 182.5,228.3 188.9,170.3 195.4,175.3 201.8,218.0 208.2,178.5 214.6,227.7 221.1,181.4 227.5,226.9 233.9,146.4 240.4,227.0 246.8,94.5 253.2,131.6 259.6,227.2 266.1,172.2 272.5,220.6 278.9,182.4 285.4,153.5 291.8,186.4 298.2,224.9 304.6,123.5 311.1,149.9 317.5,226.4 323.9,189.7 330.4,227.9 336.8,228.1 343.2,139.7 349.6,227.2 356.1,156.0 362.5,189.5 368.9,141.1 375.4,89.2 381.8,207.2 388.2,227.3 394.6,228.1 401.1,169.7 407.5,227.8 413.9,183.6 420.4,188.9 426.8,173.3 433.2,227.9 439.6,92.4 446.1,103.3 452.5,169.3 458.9,152.0 465.4,227.6 471.8,174.7 478.2,158.5 484.6,228.0 491.1,196.8 497.5,203.8 503.9,147.5 510.4,228.1 516.8,227.5 523.2,226.6 529.6,174.0 536.1,190.3 542.5,227.0 548.9,163.5 555.4,227.4 561.8,227.6 568.2,227.3 574.6,228.4 581.1,215.3 587.5,175.9 593.9,162.1 600.4,228.3 606.8,228.2 613.2,182.1 619.6,160.7 626.1,178.5 632.5,227.4 638.9,227.6 645.4,228.5 651.8,228.3 658.2,228.5 664.6,228.4 671.1,228.4 677.5,227.5 683.9,227.7 690.4,227.5 696.8,228.0 703.2,173.9 709.6,186.9 716.1,227.4 722.5,190.1 728.9,196.9 735.4,144.2 741.8,39.5 748.2,182.3 754.6,118.7 761.1,109.7 767.5,136.0 773.9,129.9 780.4,110.3 786.8,115.2 793.2,87.1 799.6,157.4 806.1,159.4 812.5,155.0 818.9,178.8 825.4,227.0 831.8,212.4 838.2,204.2 844.6,182.5 851.1,122.7 857.5,197.4 863.9,228.0 870.4,227.5 876.8,145.1 883.2,224.5 889.6,226.8 896.1,226.2 902.5,227.4 908.9,227.7 915.4,226.9 921.8,225.0 928.2,225.7 934.6,227.9 941.1,227.8 947.5,213.1 953.9,226.8 960.4,226.8 966.8,227.2" fill="none" stroke="#2980b9" stroke-width="1.2"/><text x="20" y="130.0" font-size="11" fill="#555" transform="rotate(-90 20 130.0)" text-anchor="middle">depth (reads)</text><text x="500.0" y="270" font-size="11" fill="#555" text-anchor="middle">position (Mb)</text></svg>
+<figcaption class="caption">Raw coverage across the TRA locus. This is contextual only: the corrected estimator is driven by exon-supported signal and the smoothed exon log-ratio trend, not a whole-window median over this intronic focal span.</figcaption>
+</figure>
+<div class="legend">
+<span style="background:#3498db;opacity:.55"></span>raw depth context ·
+<span style="background:#c0392b"></span>focal V-J ·
+<span style="background:#2c3e50"></span>baseline windows
+</div>
+
+<h2>Fraction contrast</h2>
+<div class="compare">
+<div class="compare-row"><div class="name">Legacy whole-window</div><div class="track"><span class="fill legacy" style="width:50%"></span></div><div class="value">50.00%</div></div>
+<div class="compare-row"><div class="name">Upstream exon-smoothed</div><div class="track"><span class="fill upstream" style="width:18.44%"></span></div><div class="value">18.44%</div></div>
+</div>
 
 <h2>Interpretation</h2>
-<ul>
-<li><strong>Strong, statistically clean dip.</strong> Focal median depth (1)
-is exactly half the baseline median (2), giving log<sub>2</sub>R = -1.0
-and an estimated <strong>50% T-cell fraction</strong>. The CI is bounded at
-0.5 from above because the focal depth cannot drop below 1 read in this
-exome dataset.</li>
-<li><strong>Biological mechanism.</strong> Mature T-cells delete one allele
-of TCRA during V-J recombination; in a sample where ~50% of cells are
-T-cells, ~25% of TCRA-locus DNA is missing at the deletion midpoint,
-yielding the focal coverage drop visible above.</li>
-<li><strong>Contrast with NA12878 (TRA splithunter report).</strong> The
-NA12878 LCL slice in <code>tests/NA12878.bam</code> shows focal/baseline
-medians of 29/31 (log₂R ≈ -0.10, fraction ≈ 6% with CI [0%, 71%]) — i.e.
-no real signal, as expected for an EBV-immortalized B-cell line.</li>
-</ul>
+<p>The fixture still shows a real T-cell signal, but the corrected port no
+longer reports the old 50% number because that value came from the simplified
+whole-window shortcut. The upstream-style path uses only exon-supported signal,
+drops one failed exon, and estimates the focal dip from the smoothed exon
+profile. That yields a materially lower but internally consistent estimate with
+a finite QC score.</p>
 
 <h2>Reproduce</h2>
 <pre><code>python -c "
-import csv, gzip
-from splithunter import _core
-from splithunter.loci import load_exons_bed
-segs = {r['segName']: (int(r['start']), int(r['end']))
-         for r in csv.DictReader(open('tests/fixtures/tcra_seg_hg19.csv'))}
+import csv, gzip, os.path as op
+from splithunter import tcell, loci
+
+fix = 'tests/fixtures'
 pos, dep = [], []
-for r in csv.DictReader(gzip.open('tests/fixtures/cov_example.csv.gz', 'rt')):
-    pos.append(int(r['pos'])); dep.append(int(r['reads']))
-mask = load_exons_bed('tests/fixtures/tcra_exons_hg19.bed', 'chr14')
-print(dict(_core.fraction_from_coverage(
-    pos, dep,
-    segs['focal'][0], segs['focal'][1],
-    segs['local1'][0], segs['local1'][1],
-    segs['local2'][0], segs['local2'][1],
-    0,                       # min_cov
-    mask)))                  # target exons to exclude from the bleed median
+for row in csv.DictReader(gzip.open(op.join(fix, 'cov_example.csv.gz'), 'rt')):
+    pos.append(int(row['pos']))
+    dep.append(int(row['reads']))
+
+segs = {r['segName']: (int(r['start']), int(r['end']))
+        for r in csv.DictReader(open(op.join(fix, 'tcra_seg_hg19.csv')))}
+seg = loci.LocusSegments('TRA', 'chr14',
+                         segs['all'], segs['focal'],
+                         segs['local1'], segs['local2'])
+exons = loci.load_exons_bed(op.join(fix, 'tcra_exons_hg19.bed'), 'chr14')
+
+print(tcell.estimate_from_coverage(pos, dep, seg, target_intervals=exons, min_cov=0))
 "</code></pre>
-<p style="font-size:0.88rem;color:#555;">On a raw hg38 WES BAM, pass
-<code>--targets kit.bed</code> to <code>splithunter_run</code> or
-<code>splithunter_tcell</code>; for TRA on hg38 the packaged
-<code>splithunter/data/tcra_exons_hg38.bed</code> is used as the default
-mask.</p>
+
+<p style="font-size:.9rem;color:#555;">Use <code>--no-default-targets</code>
+only if you explicitly want the older whole-window approximation.</p>
 </body></html>
