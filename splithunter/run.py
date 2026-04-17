@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 
 """
@@ -7,48 +7,55 @@ split reads and split read pairs to test whether they are associated with aging.
 """
 
 import argparse
-import shutil
+import json
+import logging
 import os
 import os.path as op
-import json
+import shutil
+import subprocess
 import sys
 import time
-import logging
+
+from datetime import timedelta
+from multiprocessing import Pool, cpu_count
 
 import pandas as pd
 
-from .utils import DefaultHelpParser, mkdir, get_abs_path, which
-from datetime import timedelta
-from multiprocessing import Pool, cpu_count
+from .utils import DefaultHelpParser, get_abs_path, mkdir, which
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 
-datadir = get_abs_path(op.join(op.dirname(__file__) + "/..", 'data'))
-datafile = lambda x: op.join(datadir, x)
-HLI_BAMS = datafile("HLI_bams.csv.gz")
-LOCI = "TRA|TRB|TRG|IGH|IGK|IGL"
-exec_path = which("Splithunter", paths=[op.dirname(__file__) + "/../src"])
+PACKAGE_ROOT = op.dirname(op.abspath(__file__))
+REPO_ROOT = op.dirname(PACKAGE_ROOT)
+SRC_DIR = op.join(REPO_ROOT, "src")
+DATA_DIR = get_abs_path(op.join(SRC_DIR, "data"))
+HLI_BAMS = op.join(DATA_DIR, "HLI_bams.csv.gz")
+LOCI = ("TRA", "TRB", "TRG", "IGH", "IGK", "IGL")
+
+exec_path = which("Splithunter", paths=[SRC_DIR])
 
 
 def set_argparse():
-    p = DefaultHelpParser(description=__doc__, prog=__file__,
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    p = DefaultHelpParser(
+        description=__doc__,
+        prog=__file__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     p.add_argument('infile', nargs='?',
-                    help="Input path (BAM, list of BAMs, or csv format)")
-    p.add_argument('--locus', default="", choices=LOCI.split("|"),
-                    help="Compute only one locus, must be one of {}".format(LOCI))
+                   help="Input path (BAM, list of BAMs, or csv format)")
+    p.add_argument('--locus', default="", choices=LOCI,
+                   help="Compute only one locus")
     p.add_argument('--cpus',
-                    help='Number of CPUs to use', type=int, default=cpu_count())
+                   help='Number of CPUs to use', type=int, default=cpu_count())
     p.add_argument('--log', choices=("INFO", "DEBUG"), default="INFO",
-                    help='Print debug logs, DEBUG=verbose')
+                   help='Print debug logs, DEBUG=verbose')
     set_aws_opts(p)
     return p
 
 
 def set_aws_opts(p):
     group = p.add_argument_group("AWS and Docker options")
-    p.add_argument_group(group)
     # https://github.com/hlids/infrastructure/wiki/Docker-calling-convention
     group.add_argument("--sample_id", help="Sample ID")
     group.add_argument("--workflow_execution_id", help="Workflow execution ID")
@@ -58,19 +65,15 @@ def set_aws_opts(p):
 
 
 def bam_path(bam):
-    '''
-    Is the file network-based?
-    '''
-    if bam.startswith("s3://") or bam.startswith("http://") or \
-       bam.startswith("ftp://") or bam.startswith("https://"):
+    """
+    Return network URLs untouched; resolve local paths to absolute.
+    """
+    if bam.startswith(("s3://", "http://", "https://", "ftp://")):
         return bam
-    else:
-        return op.abspath(bam)
+    return op.abspath(bam)
 
 
 def check_bam(bam):
-    # Check indices - remove if found, otherwise distinct bams may try to use
-    # the previous index, leading to an error
     bbam = op.basename(bam)
     baifile = bbam + ".bai"
     altbaifile = bbam.rsplit(".", 1)[0] + ".bai"
@@ -80,78 +83,64 @@ def check_bam(bam):
             logger.debug("Remove index `{}`".format(bai))
             os.remove(bai)
 
-    # Does the file exist?
     logger.debug("Working on `{}`".format(bam))
-
     return bam
 
 
 def cleanup(cwd, samplekey):
-    """
-    Change back to the parent folder and remove the samplekey folder after done
-    """
     os.chdir(cwd)
-    shutil.rmtree(samplekey)
+    shutil.rmtree(samplekey, ignore_errors=True)
 
 
 def run(arg):
-    '''
-    :param bam: path to bam file
-    :return: dict of calls
-    '''
+    """
+    :param arg: (samplekey, bam, args)
+    :return: dict of calls or None on failure
+    """
     samplekey, bam, args = arg
-    if not op.exists(exec_path):
-        logging.error("{} not found. Please check or recompile."\
-                    .format(exec_path))
+    if exec_path is None or not op.exists(exec_path):
+        logger.error("Splithunter binary not found. Please check or recompile.")
         sys.exit(1)
 
     cwd = os.getcwd()
     mkdir(samplekey)
     os.chdir(samplekey)
 
-    res = { 'SampleKey': samplekey, 'bam': bam }
-    failed = False
+    res = {'SampleKey': samplekey, 'bam': bam}
     if check_bam(bam) is None:
         cleanup(cwd, samplekey)
         return res
 
-    cmd = "{} {} -s {}".format(exec_path, bam, samplekey)
+    cmd = [exec_path, bam, "-s", samplekey]
     if args.locus:
-        cmd += " -l {}".format(args.locus)
+        cmd += ["-l", args.locus]
     try:
-        print >> sys.stderr, cmd
-        os.system(cmd)
+        print(" ".join(cmd), file=sys.stderr)
+        subprocess.run(cmd, check=True)
         jsonfile = "{}.json".format(samplekey)
-
-        # Read JSON from program output
-        fp = open(jsonfile)
-        res = json.load(fp)
-        fp.close()
-    except Exception as e:
+        with open(jsonfile) as fp:
+            res = json.load(fp)
+    except (subprocess.CalledProcessError, OSError, ValueError) as e:
         logger.error("Exception on `{}` {} ({})".format(bam, samplekey, e))
-        failed = True
+        cleanup(cwd, samplekey)
+        return None
 
     cleanup(cwd, samplekey)
-    return None if failed else res
+    return res
 
 
 def to_json(results):
-    if results is None:
+    if not results:
         return
 
     samplekey = results['SampleKey']
     bam = results['bam']
-    if not results:
-        logger.debug("No calls are found for {} `{}`".format(samplekey, bam))
-        return
+    logger.debug("Writing JSON for {} `{}`".format(samplekey, bam))
 
     jsonfile = ".".join((samplekey, "json"))
-    js = json.dumps(results, sort_keys=True, indent=4, separators=(',', ': '))
-
-    # Write JSON with Python
-    fw = open(jsonfile, "w")
-    print >> fw, js
-    fw.close()
+    with open(jsonfile, "w") as fw:
+        json.dump(results, fw, sort_keys=True, indent=4, separators=(',', ': '))
+        fw.write("\n")
 
 
 def get_HLI_bam(samplekey):
@@ -160,47 +149,48 @@ def get_HLI_bam(samplekey):
     """
     df = pd.read_csv(HLI_BAMS, index_col=0, dtype=str, header=None,
                      names=["SampleKey", "BAM"])
-    return df.ix[samplekey]["BAM"]
+    return df.loc[samplekey]["BAM"]
 
 
 def read_csv(csvfile, args):
-    # Mode 0: See if this is just a HLI id, starting with @
+    # Mode 0: HLI id, starting with @
     if csvfile[0] == '@':
         samplekey = csvfile[1:]
         bam = get_HLI_bam(samplekey)
         return [(samplekey, bam)]
 
-    # Mode 1: See if this is just a BAM file
-    if csvfile.endswith(".bam") or csvfile.endswith(".cram"):
-        bam = csvfile
-        bam = bam_path(bam)
+    # Mode 1: single BAM/CRAM file
+    if csvfile.endswith((".bam", ".cram")):
+        bam = bam_path(csvfile)
         if args.workflow_execution_id and args.sample_id:
             samplekey = "_".join((args.workflow_execution_id, args.sample_id))
         else:
             samplekey = op.basename(bam).rsplit(".", 1)[0]
         return [(samplekey, bam)]
 
-    fp = open(csvfile)
-    # Mode 2: See if the file contains JUST list of BAM files
-    header = fp.next().strip()
     contents = []
-    if header.endswith(".bam") and header.count(",") == 0:
+    with open(csvfile) as fp:
+        header = fp.readline().strip()
+
+        # Mode 2: just a list of BAM files
+        if header.endswith(".bam") and header.count(",") == 0:
+            fp.seek(0)
+            for row in fp:
+                bam = bam_path(row.strip())
+                samplekey = op.basename(bam).rsplit(".", 1)[0]
+                contents.append((samplekey, bam))
+            return contents
+
+        # Mode 3: CSV with samplekey,bam
         fp.seek(0)
         for row in fp:
-            bam = row.strip()
+            atoms = row.strip().split(",")
+            if len(atoms) < 2:
+                continue
+            samplekey, bam = atoms[:2]
             bam = bam_path(bam)
-            samplekey = op.basename(bam).rsplit(".", 1)[0]
-            contents.append((samplekey, bam))
-        return contents
-
-    # Mode 3: Continue reading, this is a CSV file
-    fp.seek(0)
-    for row in fp:
-        atoms = row.strip().split(",")
-        samplekey, bam = atoms[:2]
-        bam = bam_path(bam)
-        if bam.endswith(".bam"):
-            contents.append((samplekey, bam))
+            if bam.endswith(".bam"):
+                contents.append((samplekey, bam))
     return contents
 
 
@@ -208,7 +198,7 @@ def main(args):
     p = set_argparse()
     args = p.parse_args(args)
 
-    loglevel = getattr(logging, args.log.upper(), "INFO")
+    loglevel = getattr(logging, args.log.upper(), logging.INFO)
     logger.setLevel(loglevel)
     logger.debug('Commandline Arguments:{}'.format(vars(args)))
 
@@ -229,31 +219,28 @@ def main(args):
     task_args = []
     os.chdir(workdir)
 
-    # Parallel processing
-    for i, (samplekey, bam) in enumerate(samples):
+    for samplekey, bam in samples:
         jsonfile = ".".join((samplekey, "json"))
         if op.exists(jsonfile):
             continue
         task_args.append((samplekey, bam, args))
 
-    cpus = min(args.cpus, len(task_args))
+    cpus = min(args.cpus, len(task_args)) if task_args else 0
     if cpus == 0:
         logger.debug("All jobs already completed.")
-
     else:
         logger.debug("Starting {} threads for {} jobs.".format(cpus, len(task_args)))
 
-        if cpus == 1:  # Serial
+        if cpus == 1:
             for ta in task_args:
-                results = run(ta)
-                to_json(results)
+                to_json(run(ta))
         else:
-            p = Pool(processes=cpus)
-            for results in p.imap(run, task_args):
-                to_json(results)
+            with Pool(processes=cpus) as pool:
+                for results in pool.imap(run, task_args):
+                    to_json(results)
 
-    print >> sys.stderr, "Elapsed time={}"\
-            .format(timedelta(seconds=time.time() - start))
+    print("Elapsed time={}".format(timedelta(seconds=time.time() - start)),
+          file=sys.stderr)
     os.chdir(cwd)
 
 
