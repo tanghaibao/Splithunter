@@ -194,7 +194,7 @@ def read_csv(csvfile, args):
     return contents
 
 
-def main(args):
+def main(args=None):
     p = set_argparse()
     args = p.parse_args(args)
 

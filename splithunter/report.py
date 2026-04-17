@@ -104,7 +104,7 @@ def filter_TRA(df, TRA_start=21621904):
     return xf
 
 
-def main(args):
+def main(args=None):
     p = DefaultHelpParser(
         description=__doc__,
         prog=__file__,
