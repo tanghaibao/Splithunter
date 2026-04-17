@@ -10,45 +10,50 @@
 
 ## Description
 
-Identify split reads and read pairs in a particular region.
+Detect V(D)J split reads, split read pairs, and TcellExTRECT-style coverage
+dips directly from a BAM file.  The performance-sensitive core is implemented
+in Rust (via `rust-htslib`) and exposed to Python as a PyO3 extension.
 
 ## Installation
 
-```bash
-git clone --recursive https://github.com/tanghaibao/splithunter
-cd splithunter
-cd src && make -j && cd ..
-pip install .
-```
+Requires Rust (stable) and Python 3.9+.  Build via [maturin](https://www.maturin.rs):
 
-Requires Python 3.8+.
+```bash
+pip install maturin
+maturin develop --release          # editable install for development
+# or
+pip install .                      # regular install (also invokes maturin)
+```
 
 ## Usage
 
-- Run batch jobs listed in ``HLI_bams.csv``:
+### Split-read / split-pair detection
 
 ```bash
 splithunter_run HLI_bams.csv --workdir hli --locus TRA
-```
-
-- Collect results into a TSV file:
-
-```bash
 splithunter_report hli/*.json --tsv hli.splithunter.tsv
 ```
 
-## Build custom database
+Add `--tcell-fraction` to also emit TcellExTRECT-style coverage ratios per
+locus in each JSON.
 
-The default regions include `TRA`, `TRB`, `TRG`, `IGH`, `IGK`, `IGL`. To build
-BWA indices for other regions, use ``BuildDB``:
+### Standalone T-cell fraction (TcellExTRECT port)
 
 ```bash
-src/BuildDB src/data/TR_IG.bed -r ~/projects/ref/hg38.upper.fa
+splithunter_tcell path/to/sample.bam --locus TRA
+# or:
+splithunter_tcell path/to/sample.bam --locus TRA --json
 ```
+
+This computes the median log2 ratio between the focal V-J window and the
+flanking baseline windows and derives the fraction as `1 - 2^logR` (clamped to
+[0, 1]).
 
 ## Development
 
 ```bash
-pip install -e ".[test]"
+pip install maturin "pytest" pysam pandas
+maturin develop --release
 pytest tests/
+cd rust && cargo test --release
 ```

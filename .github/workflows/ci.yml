@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, modernize]
+    branches: [main, modernize, pysam-port]
   pull_request:
 
 jobs:
@@ -15,19 +15,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install htslib build deps
+        run: sudo apt-get update && sudo apt-get install -y
+          libbz2-dev liblzma-dev libcurl4-openssl-dev zlib1g-dev clang
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install package
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Create virtualenv
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
-          pip install -e ".[test]"
+          pip install "maturin>=1.5,<2.0" pytest pysam pandas rdata
 
-      - name: Syntax check
+      - name: Build extension (editable) + link libz
         run: |
-          python -m compileall -q splithunter
+          . .venv/bin/activate
+          maturin develop --release
 
-      - name: Run unit tests
-        run: pytest tests/ -v
+      - name: Rust unit tests
+        working-directory: rust
+        run: cargo test --release
+
+      - name: Python unit tests
+        run: |
+          . .venv/bin/activate
+          pytest tests/ -v
