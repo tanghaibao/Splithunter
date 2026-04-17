@@ -57,13 +57,14 @@ def set_argparse():
     p.add_argument('--tcell-fraction', action='store_true',
                    help='Also compute TcellExTRECT-style coverage fraction')
     p.add_argument('--targets', default=None,
-                   help='Capture-kit BED restricting coverage to captured '
-                        'positions.  Strongly recommended for WES BAMs; '
-                        'without it off-target zero-depth bases bias '
-                        'focal/baseline medians.  TRA falls back to a '
+                   help='Capture-kit exon BED. Positions inside listed '
+                        'intervals are EXCLUDED from the coverage median so '
+                        'that bait-inflated depth does not skew the baseline '
+                        'while the focal (intronic) V-J window is untouched. '
+                        'Recommended for WES BAMs.  TRA falls back to a '
                         'packaged default exon set when --targets is omitted.')
     p.add_argument('--no-default-targets', action='store_true',
-                   help='Disable the packaged default exon track — compute '
+                   help='Disable the packaged default exon mask — compute '
                         'over full focal/baseline windows (WGS mode).')
     p.add_argument('--pad', type=int, default=30,
                    help='Significant match / clip padding')
@@ -131,11 +132,11 @@ def analyze_bam(samplekey, bam, args, loci):
         if args.tcell_fraction and locus.name in HG38_TCELL_SEGMENTS:
             seg = HG38_TCELL_SEGMENTS[locus.name]._replace(chrom=chrom)
             if args.targets:
-                exons = load_exons_bed(args.targets, chrom)
+                mask = load_exons_bed(args.targets, chrom)
             elif args.no_default_targets:
-                exons = None
+                mask = None
             else:
-                exons = default_exons_for(locus.name, chrom)
+                mask = default_exons_for(locus.name, chrom)
             try:
                 tc = _core.tcell_fraction(
                     bam, seg.chrom,
@@ -143,12 +144,12 @@ def analyze_bam(samplekey, bam, args, loci):
                     seg.left_baseline[0], seg.left_baseline[1],
                     seg.right_baseline[0], seg.right_baseline[1],
                     1, 1,
-                    exons,
+                    mask,
                 )
                 for k, v in dict(tc).items():
                     result[f"{locus.name}.TCELL-{k}"] = v
-                result[f"{locus.name}.TCELL-exon_intervals"] = (
-                    0 if not exons else len(exons)
+                result[f"{locus.name}.TCELL-mask_intervals"] = (
+                    0 if not mask else len(mask)
                 )
             except Exception as e:
                 logger.warning("%s %s fraction failed: %s", samplekey, locus.name, e)

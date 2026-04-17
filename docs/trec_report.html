@@ -40,16 +40,16 @@ code { background: #f4f6f8; padding: .1rem .35rem; border-radius: 3px;
 <p style="background:#fffbe6;border-left:4px solid #f1c40f;padding:.6rem .9rem;
 border-radius:0 4px 4px 0;font-size:0.92rem;">
 <strong>Note on WES coverage (added 2026-04-16):</strong> The TcellExTRECT
-table below was computed over the full focal/baseline windows (intron + exon)
-— appropriate for WGS but biased for WES, where off-target zero-depth bases
-inflate the bait-edge population. Splithunter's default for WES BAMs is now
-to intersect coverage with a capture-kit exon BED before taking medians; the
-default for TRA is the upstream-vetted set in
-<code>splithunter/data/tcra_exons_hg38.bed</code> (192 intervals from
-<code>TCRA_exons_hg38.rda</code>). Override with <code>--targets BED</code>
-or opt out (as this report does) with <code>--no-default-targets</code>.
-This NA12878 LCL slice has near-zero exon overlap, so the legacy mode is
-shown to keep the SVG and numbers comparable to prior runs.
+table below was computed over the full focal/baseline windows. The V-J
+focal window is intronic in every reference build, so this estimator
+measures off-target <em>bleed</em> depth — which is susceptible to
+bait-edge spikes from adjacent captured exons. Splithunter's default on
+WES BAMs is now to <em>mask</em> the 192 hg38 TCRA exons in
+<code>splithunter/data/tcra_exons_hg38.bed</code> (ported from upstream
+<code>TCRA_exons_hg38.rda</code>) so focal and baseline medians are both
+taken on the bleed-depth scale. Override with <code>--targets BED</code>
+or opt out (as this report does) with <code>--no-default-targets</code>
+to reproduce the legacy whole-window numbers.
 </p>
 <h2 style="border-bottom:2px solid #2c3e50">Sample: NA12878</h2>
 <p>BAM: <code>/Users/bao/code/Splithunter/tests/NA12878.bam</code></p>
