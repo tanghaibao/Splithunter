@@ -1,26 +1,35 @@
-FROM ubuntu:latest
-MAINTAINER htang@humanlongevity.com
+FROM ubuntu:22.04
 
-RUN apt-get update
-RUN apt-get install -y gcc git build-essential
-RUN apt-get install -y python-dev libxml2-dev libxslt-dev
-RUN apt-get install -y libncurses-dev libcurl4-openssl-dev zlib1g-dev
-RUN apt-get install -y vcftools python-pip
-RUN apt-get install -y libblas-dev liblapack-dev libatlas-base-dev gfortran
-RUN apt-get install -y wget autoconf libssl-dev
+LABEL maintainer="tanghaibao@gmail.com"
 
-RUN pip install --upgrade pip
-RUN pip install boto3 awscli
-RUN pip install pyfaidx pyliftover pyvcf
-RUN pip install cython
-RUN pip install pandas
-RUN pip install scipy
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install HTSLIB
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        git \
+        wget \
+        autoconf \
+        zlib1g-dev \
+        libbz2-dev \
+        liblzma-dev \
+        libncurses-dev \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        python3 \
+        python3-pip \
+        python3-dev \
+        libjsoncpp-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --no-cache-dir --upgrade pip \
+    && python3 -m pip install --no-cache-dir boto3 awscli pandas
+
+# Install HTSLIB / samtools
 ADD install.sh /
 RUN bash /install.sh
 
 # Install splithunter, run `update_package.sh` first
 ADD Splithunter /Splithunter
 WORKDIR /Splithunter
-RUN python setup.py install
+RUN cd src && make -j 4 && cd ..
+RUN python3 -m pip install --no-cache-dir .

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.coverage
+.tox/
+
+# C++ build artifacts
+src/*.o
+src/Splithunter
+src/BuildDB
+src/bedFile/*.o
+src/bedFile/*.a
+src/SeqLib/bin/
+
+# Workdirs from splithunter runs
+work/
+*.splithunter.tsv
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
