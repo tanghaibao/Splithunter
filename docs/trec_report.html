@@ -36,7 +36,21 @@ tr.na td { color: #aaa; background: #fafafa; }
                border-radius: 2px; vertical-align: middle; margin-right: 4px; }
 code { background: #f4f6f8; padding: .1rem .35rem; border-radius: 3px;
        font-size: 0.88em; }
-</style></head><body><h1>Splithunter report</h1><p>V(D)J split-read / split-pair detection plus TcellExTRECT-style coverage analysis. Engine: <code>splithunter._core</code> (Rust + BWA-MEM FFI).</p><div class="meta"><dl><dt>Generated</dt><dd>2026-04-16 19:30:44</dd><br><dt>Samples</dt><dd>1</dd></dl></div>
+</style></head><body><h1>Splithunter report</h1><p>V(D)J split-read / split-pair detection plus TcellExTRECT-style coverage analysis. Engine: <code>splithunter._core</code> (Rust + BWA-MEM FFI).</p><div class="meta"><dl><dt>Generated</dt><dd>2026-04-16 19:30:44</dd><br><dt>Samples</dt><dd>1</dd><br><dt>Coverage mode</dt><dd>whole-window (legacy; <code>--no-default-targets</code>)</dd></dl></div>
+<p style="background:#fffbe6;border-left:4px solid #f1c40f;padding:.6rem .9rem;
+border-radius:0 4px 4px 0;font-size:0.92rem;">
+<strong>Note on WES coverage (added 2026-04-16):</strong> The TcellExTRECT
+table below was computed over the full focal/baseline windows. The V-J
+focal window is intronic in every reference build, so this estimator
+measures off-target <em>bleed</em> depth — which is susceptible to
+bait-edge spikes from adjacent captured exons. Splithunter's default on
+WES BAMs is now to <em>mask</em> the 192 hg38 TCRA exons in
+<code>splithunter/data/tcra_exons_hg38.bed</code> (ported from upstream
+<code>TCRA_exons_hg38.rda</code>) so focal and baseline medians are both
+taken on the bleed-depth scale. Override with <code>--targets BED</code>
+or opt out (as this report does) with <code>--no-default-targets</code>
+to reproduce the legacy whole-window numbers.
+</p>
 <h2 style="border-bottom:2px solid #2c3e50">Sample: NA12878</h2>
 <p>BAM: <code>/Users/bao/code/Splithunter/tests/NA12878.bam</code></p>
 <h2>Locus TRA — chr14:21,621,904-22,752,132</h2>

@@ -25,6 +25,8 @@ from .loci import (
     HG38_LOCI,
     HG38_LOCI_BY_NAME,
     HG38_TCELL_SEGMENTS,
+    default_exons_for,
+    load_exons_bed,
     pick_contig,
 )
 from .utils import DefaultHelpParser, get_abs_path, mkdir
@@ -54,6 +56,16 @@ def set_argparse():
                    help='Print debug logs, DEBUG=verbose')
     p.add_argument('--tcell-fraction', action='store_true',
                    help='Also compute TcellExTRECT-style coverage fraction')
+    p.add_argument('--targets', default=None,
+                   help='Capture-kit exon BED. Positions inside listed '
+                        'intervals are EXCLUDED from the coverage median so '
+                        'that bait-inflated depth does not skew the baseline '
+                        'while the focal (intronic) V-J window is untouched. '
+                        'Recommended for WES BAMs.  TRA falls back to a '
+                        'packaged default exon set when --targets is omitted.')
+    p.add_argument('--no-default-targets', action='store_true',
+                   help='Disable the packaged default exon mask — compute '
+                        'over full focal/baseline windows (WGS mode).')
     p.add_argument('--pad', type=int, default=30,
                    help='Significant match / clip padding')
     p.add_argument('--indel', type=int, default=10_000,
@@ -119,6 +131,12 @@ def analyze_bam(samplekey, bam, args, loci):
 
         if args.tcell_fraction and locus.name in HG38_TCELL_SEGMENTS:
             seg = HG38_TCELL_SEGMENTS[locus.name]._replace(chrom=chrom)
+            if args.targets:
+                mask = load_exons_bed(args.targets, chrom)
+            elif args.no_default_targets:
+                mask = None
+            else:
+                mask = default_exons_for(locus.name, chrom)
             try:
                 tc = _core.tcell_fraction(
                     bam, seg.chrom,
@@ -126,9 +144,13 @@ def analyze_bam(samplekey, bam, args, loci):
                     seg.left_baseline[0], seg.left_baseline[1],
                     seg.right_baseline[0], seg.right_baseline[1],
                     1, 1,
+                    mask,
                 )
                 for k, v in dict(tc).items():
                     result[f"{locus.name}.TCELL-{k}"] = v
+                result[f"{locus.name}.TCELL-mask_intervals"] = (
+                    0 if not mask else len(mask)
+                )
             except Exception as e:
                 logger.warning("%s %s fraction failed: %s", samplekey, locus.name, e)
 

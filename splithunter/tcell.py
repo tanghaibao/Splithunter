@@ -16,14 +16,35 @@ import json
 import sys
 
 from . import _core
-from .loci import HG38_TCELL_SEGMENTS, HG38_LOCI_BY_NAME, LocusSegments
+from .loci import (
+    HG38_TCELL_SEGMENTS,
+    HG38_LOCI_BY_NAME,
+    LocusSegments,
+    default_exons_for,
+    load_exons_bed,
+)
 from .utils import DefaultHelpParser
 
 
-def estimate(bam_path: str, segs: LocusSegments, min_mapq: int = 1, min_cov: int = 1):
+def estimate(
+    bam_path: str,
+    segs: LocusSegments,
+    min_mapq: int = 1,
+    min_cov: int = 1,
+    target_mask=None,
+):
     """
     Return the TcellExTRECT-style summary dict for one locus.
+
+    ``target_mask`` is an optional iterable of ``(start, end)`` intervals
+    (0-based half-open) covering captured exon positions whose depth should
+    be EXCLUDED from the coverage median.  The V-J focal window is intronic
+    in every reference build, so the signal this estimator measures is the
+    off-target *bleed* depth; bait-inflated captured positions skew the
+    baseline median asymmetrically on WES BAMs.  Masking them isolates the
+    bleed depth in both focal and baseline and removes bait-edge bias.
     """
+    mask_list = list(target_mask) if target_mask else None
     result = _core.tcell_fraction(
         bam_path,
         segs.chrom,
@@ -35,6 +56,7 @@ def estimate(bam_path: str, segs: LocusSegments, min_mapq: int = 1, min_cov: int
         segs.right_baseline[1],
         min_mapq,
         min_cov,
+        mask_list,
     )
     return dict(result)
 
@@ -63,6 +85,17 @@ def main(args=None):
                    help="V(D)J locus to analyse")
     p.add_argument("--min-mapq", type=int, default=1)
     p.add_argument("--min-cov", type=int, default=1)
+    p.add_argument("--targets", default=None,
+                   help="Capture-kit exon BED.  Positions inside listed "
+                        "intervals are EXCLUDED from the coverage median so "
+                        "that bait-inflated depth doesn't dominate baseline "
+                        "while leaving focal (intronic) untouched.  Recommended "
+                        "for WES BAMs.  TRA uses a packaged default exon set "
+                        "if --targets is omitted.")
+    p.add_argument("--no-default-targets", action="store_true",
+                   help="Disable the packaged default exon mask (compute "
+                        "over the full window — appropriate for WGS or for "
+                        "pre-masked coverage tracks).")
     p.add_argument("--json", action="store_true",
                    help="Emit a JSON object instead of a human summary")
     parsed = p.parse_args(args)
@@ -75,9 +108,17 @@ def main(args=None):
         contig = segs.chrom
     segs = segs._replace(chrom=contig)
 
-    result = estimate(parsed.bam, segs, parsed.min_mapq, parsed.min_cov)
+    if parsed.targets:
+        mask = load_exons_bed(parsed.targets, contig)
+    elif parsed.no_default_targets:
+        mask = None
+    else:
+        mask = default_exons_for(parsed.locus, contig)
+
+    result = estimate(parsed.bam, segs, parsed.min_mapq, parsed.min_cov, mask)
     result["locus"] = parsed.locus
     result["bam"] = parsed.bam
+    result["mask_intervals"] = 0 if not mask else len(mask)
 
     if parsed.json:
         json.dump(result, sys.stdout, indent=2, sort_keys=True, default=float)
@@ -88,6 +129,11 @@ def main(args=None):
     print(f"Focal window   : {segs.focal[0]:,}-{segs.focal[1]:,}")
     print(f"Baseline L / R : {segs.left_baseline[0]:,}-{segs.left_baseline[1]:,} "
           f"/ {segs.right_baseline[0]:,}-{segs.right_baseline[1]:,}")
+    if mask:
+        print(f"Target mask    : {len(mask)} intervals "
+              f"(bait-edge depth excluded)")
+    else:
+        print(f"Target mask    : none (full-window coverage)")
     print(f"Depth (focal)  : median={result['focal_median']:.2f} "
           f"(n={result['focal_positions']})")
     print(f"Depth (base)   : median={result['baseline_median']:.2f} "

@@ -72,12 +72,13 @@ pub fn tcell_fraction(
     right_baseline: (i64, i64),
     min_mapq: u8,
     min_cov: u32,
+    target_mask: &[(i64, i64)],
 ) -> Result<TcellResult, HtslibError> {
     let lo = left_baseline.0.min(focal.0);
     let hi = right_baseline.1.max(focal.1);
     let cov = region_coverage(bam_path, chrom, lo, hi, min_mapq)?;
     Ok(fraction_from_positions(
-        &cov, focal, left_baseline, right_baseline, min_cov,
+        &cov, focal, left_baseline, right_baseline, min_cov, target_mask,
     ))
 }
 
@@ -90,19 +91,42 @@ pub fn fraction_from_positions(
     left_baseline: (i64, i64),
     right_baseline: (i64, i64),
     min_cov: u32,
+    target_mask: &[(i64, i64)],
 ) -> TcellResult {
     let in_range = |pos: i64, (s, e): (i64, i64)| pos >= s && pos < e;
+    // `target_mask` = capture-kit exon intervals whose positions should be
+    // EXCLUDED from the coverage median.  The TCRA V-J focal window is
+    // intronic in every reference build, so the meaningful focal signal in
+    // this estimator is the off-target *bleed* depth — reads that flank
+    // captured exons and spill into the intronic V-J region.  On WES, the
+    // few positions that fall inside captured exons carry bait-inflated
+    // depth (~40x vs. ~2x bleed) and dominate the baseline median while
+    // leaving the focal median untouched (no exons in focal), biasing the
+    // ratio.  Masking exon positions isolates the bleed-depth signal in
+    // both focal and baseline and removes bait-edge asymmetry.
+    //
+    // Upstream TcellExTRECT instead INCLUDES exon positions and uses a GAM
+    // fit to extrapolate the baseline trend across the intronic focal —
+    // that methodology would require landing items 1–3 in the port-gap
+    // plan (GC correction, GAM smoothing, baselineAdj).  An empty
+    // `target_mask` preserves whole-window behaviour (appropriate for WGS
+    // and for pre-masked inputs like the upstream `cov_example` track).
+    let is_masked = |pos: i64| {
+        target_mask.iter().any(|&(s, e)| pos >= s && pos < e)
+    };
 
     let mut baseline: Vec<f64> = cov
         .iter()
         .filter(|(p, d)| {
-            *d >= min_cov && (in_range(*p, left_baseline) || in_range(*p, right_baseline))
+            *d >= min_cov
+                && !is_masked(*p)
+                && (in_range(*p, left_baseline) || in_range(*p, right_baseline))
         })
         .map(|(_, d)| *d as f64)
         .collect();
     let mut focal_vals: Vec<f64> = cov
         .iter()
-        .filter(|(p, d)| *d >= min_cov && in_range(*p, focal))
+        .filter(|(p, d)| *d >= min_cov && !is_masked(*p) && in_range(*p, focal))
         .map(|(_, d)| *d as f64)
         .collect();
 
